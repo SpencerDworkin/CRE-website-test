@@ -52,13 +52,12 @@ Keyboard: `Tab` cycles operatives, `Enter` ends the turn, `Esc` cancels ability 
 ## Project layout
 
 ```
-src/rad-squad.body.html   the game — markup, styles and engine (single source of truth)
-index.html                generated standalone page (wraps the above in a full HTML document)
-build.sh                  regenerates index.html from src/
+index.html                the entire game — markup, styles and engine
+tools/artifact-body.sh    strips the HTML wrapper off index.html for embedding elsewhere
 ```
 
-Edit `src/rad-squad.body.html`, then run `./build.sh`. The split exists so the same source can be
-served both as a standalone page and as an embedded page body.
+`index.html` is the whole game and the only file you need — edit it directly. `tools/artifact-body.sh`
+exists only to derive an embeddable, wrapper-free copy for hosting the page inside another document.
 
 ## Balance
 
