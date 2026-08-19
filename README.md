@@ -18,7 +18,9 @@ Everything in this repository is original work:
 
 - an original roster, with original names, classes and traits
 - original maps
-- original art, drawn procedurally on a `<canvas>` at runtime (there are no image files at all)
+- original art, drawn procedurally on a `<canvas>` at runtime (there are no image files at all):
+  an isometric board rendered with depth-sorted 3D blocks, and chunky heavy-outlined cartoon
+  operatives with segmented health rings at their feet
 - original audio, synthesised in the browser with the WebAudio API (there are no sound files either)
 - an original rules engine, AI opponent and UI
 
