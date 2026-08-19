@@ -20,7 +20,6 @@
   --yellow:#f2c14e; --green:#7fc45a; --purple:#a879d8;
   --shadow:0 8px 0 rgba(0,0,0,.45);
 }
-:root[data-theme="light"]{ --ink:#14110f; }
 html,body{height:100%}
 body{
   background:var(--ink);
@@ -144,6 +143,12 @@ canvas{display:block;width:100%;height:auto;border:3px solid var(--line);border-
 .banner span{font-family:'Bungee',sans-serif;font-size:clamp(22px,5vw,44px);color:var(--yellow);
   text-shadow:0 4px 0 #000,0 0 24px rgba(0,0,0,.8);animation:pop .5s ease-out}
 @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion: reduce){
+  .banner span{animation:none}
+  .btn{transition:none}
+  .btn:active:not(:disabled){transform:none;border-bottom-width:5px}
+  .meter-fill,.bar-fill{transition:none}
+}
 .side{width:290px;flex:none;display:flex;flex-direction:column;gap:10px}
 @media(max-width:900px){.side{width:100%}}
 .panel{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:12px}
