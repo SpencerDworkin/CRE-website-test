@@ -1,0 +1,1916 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="RAD Squad Tactics — an original turn-based squad tactics game.">
+<meta name="color-scheme" content="dark">
+<title>RAD Squad Tactics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#14110f; --ink-2:#221d1a; --panel:#2b2521; --panel-2:#352e28;
+  --line:#4a4038; --text:#f2ece4; --text-dim:#a99e92;
+  --blue:#4aa3e8; --blue-d:#1f6fae; --red:#e8563f; --red-d:#a8301e;
+  --yellow:#f2c14e; --green:#7fc45a; --purple:#a879d8;
+  --shadow:0 8px 0 rgba(0,0,0,.45);
+}
+:root[data-theme="light"]{ --ink:#14110f; }
+html,body{height:100%}
+body{
+  background:var(--ink);
+  color:var(--text);
+  font-family:'Barlow',system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+#app{min-height:100vh;display:flex;flex-direction:column}
+h1,h2,h3,.bungee{font-family:'Bungee',Impact,system-ui,sans-serif;font-weight:400;letter-spacing:.01em}
+.cond{font-family:'Barlow Condensed','Barlow',sans-serif}
+.screen{display:none;flex:1;min-height:0}
+.screen.on{display:flex;flex-direction:column}
+
+/* ---------- buttons ---------- */
+.btn{
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px;
+  text-transform:uppercase;letter-spacing:.06em;
+  background:var(--panel-2);color:var(--text);
+  border:2px solid var(--line);border-bottom-width:5px;border-radius:8px;
+  padding:10px 18px;cursor:pointer;transition:transform .06s,background .12s,border-color .12s;
+  line-height:1.1;
+}
+.btn:hover:not(:disabled){background:#40382f;border-color:#655749}
+.btn:active:not(:disabled){transform:translateY(2px);border-bottom-width:3px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{background:var(--yellow);color:#1d1710;border-color:#a8842a}
+.btn.primary:hover:not(:disabled){background:#ffd469}
+.btn.danger{background:var(--red);color:#fff;border-color:var(--red-d)}
+.btn.danger:hover:not(:disabled){background:#ff6b52}
+.btn.sm{font-size:14px;padding:7px 12px;border-bottom-width:4px}
+.btn.ghost{background:transparent}
+
+/* ---------- title ---------- */
+#screen-title{align-items:center;justify-content:center;text-align:center;padding:32px 20px;
+  background:
+    radial-gradient(1100px 620px at 50% 8%, #3a2f26 0%, transparent 62%),
+    repeating-linear-gradient(135deg,#191512 0 22px,#16120f 22px 44px);
+}
+.logo{font-size:clamp(40px,9vw,88px);line-height:.92;color:var(--yellow);
+  text-shadow:0 5px 0 #a8842a, 0 10px 0 rgba(0,0,0,.5);}
+.logo small{display:block;font-size:.28em;color:var(--text);text-shadow:0 3px 0 rgba(0,0,0,.5);letter-spacing:.22em;margin-top:14px}
+.tagline{color:var(--text-dim);max-width:600px;margin:22px auto 0;font-size:16px;line-height:1.6}
+.title-menu{display:flex;flex-direction:column;gap:12px;margin-top:34px;width:min(320px,90vw)}
+.credit{margin-top:34px;font-size:12px;color:#6f6459;max-width:620px;line-height:1.7}
+
+/* ---------- generic layout ---------- */
+.topbar{display:flex;align-items:center;gap:14px;padding:12px 18px;background:var(--panel);
+  border-bottom:3px solid var(--line);flex-wrap:wrap}
+.topbar h2{font-size:20px;color:var(--yellow)}
+.spacer{flex:1}
+.body-scroll{flex:1;overflow-y:auto;padding:22px 18px 40px}
+.wrap{max-width:1180px;margin:0 auto}
+.section-label{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.14em;
+  font-size:13px;color:var(--text-dim);font-weight:700;margin:26px 0 12px;display:flex;align-items:center;gap:10px}
+.section-label::after{content:"";flex:1;height:2px;background:var(--line)}
+
+/* ---------- cards ---------- */
+.grid{display:grid;gap:12px}
+.recruit-grid{grid-template-columns:repeat(auto-fill,minmax(212px,1fr))}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:12px;
+  cursor:pointer;transition:border-color .12s,background .12s,transform .08s;position:relative}
+.card:hover{border-color:#6f6153;background:var(--panel-2)}
+.card.picked{border-color:var(--yellow);background:#3a3122}
+.card.dis{opacity:.42;cursor:not-allowed}
+.card-head{display:flex;align-items:center;gap:10px}
+.portrait{width:46px;height:46px;border-radius:8px;flex:none;background:#1c1815;border:2px solid var(--line)}
+.card-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:18px;line-height:1.05}
+.card-cls{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);font-weight:600}
+.trait{margin-top:9px;font-size:12.5px;color:#cbbfae;line-height:1.45;border-top:1px dashed var(--line);padding-top:8px}
+.trait b{color:var(--yellow);font-weight:600}
+.pts{position:absolute;top:10px;right:10px;background:var(--ink-2);border:2px solid var(--line);
+  border-radius:6px;font-family:'Bungee',sans-serif;font-size:12px;padding:2px 7px;color:var(--yellow)}
+.stat-row{display:flex;gap:12px;margin-top:9px;font-size:12px;color:var(--text-dim);font-family:'Barlow Condensed',sans-serif;font-weight:600}
+.stat-row b{color:var(--text)}
+.wsel{margin-top:9px;width:100%;background:var(--ink-2);color:var(--text);border:2px solid var(--line);
+  border-radius:6px;padding:6px 8px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:14px}
+
+/* ---------- squad bar ---------- */
+.squadbar{position:sticky;top:0;z-index:5;background:var(--panel);border:2px solid var(--line);
+  border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.budget{display:flex;gap:8px}
+.chip{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;padding:6px 13px;border-radius:20px;
+  border:2px solid var(--line);background:var(--ink-2);cursor:pointer;text-transform:uppercase;letter-spacing:.05em}
+.chip.on{background:var(--yellow);color:#1d1710;border-color:#a8842a}
+.meter{flex:1;min-width:170px}
+.meter-track{height:14px;background:var(--ink-2);border:2px solid var(--line);border-radius:9px;overflow:hidden}
+.meter-fill{height:100%;background:var(--yellow);transition:width .18s}
+.meter-fill.over{background:var(--red)}
+.meter-txt{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;margin-bottom:5px;letter-spacing:.06em;text-transform:uppercase}
+
+/* ---------- mission list ---------- */
+.mission{display:flex;gap:14px;align-items:center;background:var(--panel);border:2px solid var(--line);
+  border-radius:10px;padding:14px;cursor:pointer;transition:border-color .12s}
+.mission:hover{border-color:#6f6153}
+.mission.locked{opacity:.4;cursor:not-allowed}
+.mission.done{border-color:var(--green)}
+.mnum{font-family:'Bungee',sans-serif;font-size:26px;color:var(--yellow);width:46px;text-align:center;flex:none}
+.mission h3{font-size:17px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.02em}
+.mission p{font-size:13.5px;color:var(--text-dim);margin-top:3px;line-height:1.45}
+.mtag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--green);flex:none}
+
+/* ---------- battle ---------- */
+#screen-battle{background:#0e0c0a}
+.hud-top{display:flex;align-items:center;gap:12px;padding:9px 14px;background:var(--panel);
+  border-bottom:3px solid var(--line);flex-wrap:wrap}
+.turnbadge{font-family:'Bungee',sans-serif;font-size:14px;padding:5px 12px;border-radius:6px;background:var(--blue);color:#08131c}
+.turnbadge.enemy{background:var(--red);color:#fff}
+.holds{display:flex;align-items:center;gap:9px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+.pips{display:flex;gap:4px}
+.pip{width:15px;height:15px;border-radius:4px;border:2px solid var(--line);background:var(--ink-2)}
+.pip.b{background:var(--blue);border-color:var(--blue-d)}
+.pip.r{background:var(--red);border-color:var(--red-d)}
+.battle-main{flex:1;display:flex;gap:14px;padding:14px;min-height:0;align-items:flex-start;flex-wrap:wrap}
+.stage{flex:1;min-width:300px;display:flex;flex-direction:column;align-items:center;gap:10px}
+#canvasWrap{position:relative;width:100%;max-width:900px}
+canvas{display:block;width:100%;height:auto;border:3px solid var(--line);border-radius:10px;background:#20241d;
+  touch-action:none;cursor:pointer}
+.banner{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none}
+.banner.on{display:flex}
+.banner span{font-family:'Bungee',sans-serif;font-size:clamp(22px,5vw,44px);color:var(--yellow);
+  text-shadow:0 4px 0 #000,0 0 24px rgba(0,0,0,.8);animation:pop .5s ease-out}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.side{width:290px;flex:none;display:flex;flex-direction:column;gap:10px}
+@media(max-width:900px){.side{width:100%}}
+.panel{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:12px}
+.panel h4{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-dim);font-weight:700;margin-bottom:9px}
+.unit-name{font-family:'Bungee',sans-serif;font-size:17px;line-height:1.15}
+.bars{margin-top:9px;display:flex;flex-direction:column;gap:7px}
+.bar{display:flex;align-items:center;gap:8px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;letter-spacing:.06em}
+.bar-track{flex:1;height:12px;background:var(--ink-2);border:2px solid var(--line);border-radius:7px;overflow:hidden}
+.bar-fill{height:100%;transition:width .2s}
+.bar-fill.hp{background:var(--green)}
+.bar-fill.hp.low{background:var(--red)}
+.bar-fill.en{background:var(--blue)}
+.acts{display:flex;flex-direction:column;gap:7px;margin-top:11px}
+.act{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;width:100%}
+.act .cost{font-family:'Bungee',sans-serif;font-size:11px;color:var(--yellow)}
+.act.on{background:var(--blue);color:#08131c;border-color:var(--blue-d)}
+.act.on .cost{color:#08131c}
+.roster{display:flex;flex-direction:column;gap:6px}
+.rrow{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;background:var(--ink-2);
+  border:2px solid transparent;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:14px}
+.rrow:hover{border-color:var(--line)}
+.rrow.sel{border-color:var(--yellow)}
+.rrow.dead{opacity:.35;text-decoration:line-through;cursor:default}
+.rrow .dot{width:11px;height:11px;border-radius:50%;flex:none}
+.rrow .hpmini{flex:1;height:7px;background:#000;border-radius:4px;overflow:hidden}
+.rrow .hpmini i{display:block;height:100%;background:var(--green)}
+.rrow .en{font-size:11px;color:var(--blue);font-weight:700}
+.log{height:132px;overflow-y:auto;font-size:12.5px;line-height:1.5;color:#c3b9ac;display:flex;flex-direction:column-reverse;gap:3px}
+.log b{color:var(--text)}
+.log .hit{color:var(--green)}
+.log .miss{color:var(--red)}
+.log .sys{color:var(--yellow)}
+.hint{font-size:12.5px;color:var(--text-dim);line-height:1.5;text-align:center;min-height:19px}
+
+/* ---------- tooltip ---------- */
+#tip{position:absolute;pointer-events:none;display:none;background:rgba(14,12,10,.96);border:2px solid var(--line);
+  border-radius:8px;padding:8px 10px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;
+  line-height:1.4;white-space:nowrap;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.6)}
+#tip .big{font-family:'Bungee',sans-serif;font-size:16px;display:block}
+#tip .g{color:var(--green)} #tip .y{color:var(--yellow)} #tip .r{color:var(--red)}
+
+/* ---------- result ---------- */
+#screen-result{align-items:center;justify-content:center;text-align:center;padding:34px 20px}
+.result-title{font-size:clamp(34px,8vw,68px);line-height:1}
+.result-title.win{color:var(--green);text-shadow:0 5px 0 #3d6b2b}
+.result-title.lose{color:var(--red);text-shadow:0 5px 0 var(--red-d)}
+.result-stats{display:flex;gap:26px;justify-content:center;margin:26px 0;flex-wrap:wrap}
+.rs{min-width:96px}
+.rs b{display:block;font-family:'Bungee',sans-serif;font-size:28px;color:var(--yellow)}
+.rs span{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);font-weight:600}
+.rules{text-align:left;max-width:760px;margin:0 auto;font-size:14.5px;line-height:1.75;color:#cbc0b2}
+.rules h3{color:var(--yellow);font-size:16px;margin:20px 0 8px}
+.rules ul{margin-left:19px}.rules li{margin:5px 0}
+.rules code{background:var(--ink-2);padding:1px 6px;border-radius:4px;font-size:13px;color:var(--yellow)}
+</style>
+
+<div id="app">
+
+  <!-- ============ TITLE ============ -->
+  <section id="screen-title" class="screen on">
+    <h1 class="logo">RAD SQUAD<small>TACTICS</small></h1>
+    <p class="tagline">Turn-based squad skirmishes. Spend energy to move, shoot and flank &mdash; but bank
+      what you don't spend, because leftover energy is what shoots back on your opponent's turn.</p>
+    <div class="title-menu">
+      <button class="btn primary" data-go="campaign">Campaign</button>
+      <button class="btn" data-go="skirmish">Skirmish vs AI</button>
+      <button class="btn" data-go="hotseat">Pass &amp; Play</button>
+      <button class="btn ghost" data-go="rules">How to Play</button>
+    </div>
+    <p class="credit">An original tactics game built in tribute to the 2012 mobile squad-tactics games of that era.
+      All characters, art, maps and code here are original &mdash; no assets or code from any commercial game are used.</p>
+  </section>
+
+  <!-- ============ RULES ============ -->
+  <section id="screen-rules" class="screen">
+    <div class="topbar"><h2>How to Play</h2><div class="spacer"></div>
+      <button class="btn sm" data-go="title">Back</button></div>
+    <div class="body-scroll"><div class="wrap rules" id="rulesBody"></div></div>
+  </section>
+
+  <!-- ============ CAMPAIGN ============ -->
+  <section id="screen-campaign" class="screen">
+    <div class="topbar"><h2>Campaign</h2><div class="spacer"></div>
+      <button class="btn sm" id="wipeProgress">Reset Progress</button>
+      <button class="btn sm" data-go="title">Back</button></div>
+    <div class="body-scroll"><div class="wrap">
+      <div class="grid" id="missionList" style="gap:10px"></div>
+    </div></div>
+  </section>
+
+  <!-- ============ SQUAD BUILDER ============ -->
+  <section id="screen-squad" class="screen">
+    <div class="topbar"><h2 id="squadTitle">Build Your Squad</h2><div class="spacer"></div>
+      <button class="btn sm" id="squadBack">Back</button></div>
+    <div class="body-scroll"><div class="wrap">
+      <div class="squadbar">
+        <div id="budgetPick" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+          <span class="meter-txt" style="margin:0">Squad Size</span>
+          <div class="budget">
+            <button class="chip" data-budget="14">14 pt</button>
+            <button class="chip on" data-budget="20">20 pt</button>
+            <button class="chip" data-budget="26">26 pt</button>
+          </div>
+        </div>
+        <div class="meter">
+          <div class="meter-txt"><span id="ptsTxt">0 / 20 points</span> &middot; <span id="cntTxt">0 operatives</span></div>
+          <div class="meter-track"><div class="meter-fill" id="ptsFill" style="width:0%"></div></div>
+        </div>
+        <button class="btn primary" id="deployBtn" disabled>Deploy</button>
+      </div>
+      <div class="section-label">Available Operatives &mdash; tap to recruit, choose a weapon to set their cost</div>
+      <div class="grid recruit-grid" id="recruitGrid"></div>
+    </div></div>
+  </section>
+
+  <!-- ============ MAP SELECT ============ -->
+  <section id="screen-map" class="screen">
+    <div class="topbar"><h2>Choose Battleground</h2><div class="spacer"></div>
+      <button class="btn sm" id="mapBack">Back</button></div>
+    <div class="body-scroll"><div class="wrap">
+      <div class="grid" id="mapGrid" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))"></div>
+    </div></div>
+  </section>
+
+  <!-- ============ BATTLE ============ -->
+  <section id="screen-battle" class="screen">
+    <div class="hud-top">
+      <span class="turnbadge" id="turnBadge">Your Turn</span>
+      <span class="cond" style="font-weight:700;letter-spacing:.08em" id="roundTxt">ROUND 1</span>
+      <div class="holds"><span>Hold</span><div class="pips" id="pipsBlue"></div>
+        <span style="color:var(--text-dim)">vs</span><div class="pips" id="pipsRed"></div></div>
+      <div class="spacer"></div>
+      <button class="btn sm" id="muteBtn">Sound: On</button>
+      <button class="btn sm danger" id="quitBtn">Retreat</button>
+      <button class="btn sm primary" id="endTurnBtn">End Turn</button>
+    </div>
+    <div class="battle-main">
+      <div class="stage">
+        <div id="canvasWrap">
+          <canvas id="cv" width="768" height="576"></canvas>
+          <div class="banner" id="banner"><span></span></div>
+          <div id="tip"></div>
+        </div>
+        <p class="hint" id="hint"></p>
+      </div>
+      <div class="side">
+        <div class="panel" id="unitPanel"></div>
+        <div class="panel"><h4>Squad</h4><div class="roster" id="rosterBox"></div></div>
+        <div class="panel"><h4>Combat Log</h4><div class="log" id="logBox"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RESULT ============ -->
+  <section id="screen-result" class="screen">
+    <h1 class="result-title" id="resultTitle">Victory</h1>
+    <p class="tagline" id="resultSub"></p>
+    <div class="result-stats" id="resultStats"></div>
+    <div class="title-menu" style="margin:0 auto">
+      <button class="btn primary" id="againBtn">Play Again</button>
+      <button class="btn" data-go="title">Main Menu</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   RAD SQUAD TACTICS — original turn-based squad tactics engine
+   ===================================================================== */
+
+/* ------------------------------- DATA ------------------------------- */
+const COLS = 16, ROWS = 12, TILE = 48;
+
+const CLASSES = {
+  commando: { name:'Commando', hp:130, energy:14, aim:5,  color:'#e8563f', blurb:'Front-line rifleman. Pins targets with suppressing fire.',
+              ability:{ id:'suppress', name:'Suppressing Fire', cost:6, range:9, targets:'enemy',
+                        desc:'-25 accuracy on the target until their next turn, and they cannot return fire.' } },
+  medic:    { name:'Medic', hp:115, energy:14, aim:0, color:'#7fc45a', blurb:'Keeps the squad upright. Heals from a distance.',
+              ability:{ id:'heal', name:'Field Dressing', cost:6, range:4, targets:'ally',
+                        desc:'Restore 35 HP to an ally within 4 tiles.' } },
+  engineer: { name:'Engineer', hp:145, energy:12, aim:0, color:'#f2c14e', blurb:'Tough and stubborn. Builds cover where there is none.',
+              ability:{ id:'barricade', name:'Deploy Barricade', cost:6, range:1, targets:'tile',
+                        desc:'Drop a sandbag on an adjacent tile: permanent half cover.' } },
+  captain:  { name:'Captain', hp:135, energy:16, aim:8, color:'#4aa3e8', blurb:'Squad leader. Buys an ally an extra move.',
+              ability:{ id:'rally', name:'Rally', cost:5, range:5, targets:'ally',
+                        desc:'Give an ally +5 energy immediately (cannot exceed their maximum).' } },
+  agent:    { name:'Agent', hp:105, energy:18, aim:10, color:'#a879d8', blurb:'Fast and slippery. Vanishes into smoke.',
+              ability:{ id:'smoke', name:'Smoke Screen', cost:4, range:0, targets:'self',
+                        desc:'-25 to all enemy accuracy against this operative until your next turn.' } },
+};
+
+const WEAPONS = {
+  pistol:   { name:'Pistol',        pts:4, dmg:[16,24], acc:78, opt:4,  max:7,  cost:4, falloff:7 },
+  smg:      { name:'SMG',           pts:5, dmg:[20,29], acc:73, opt:4,  max:7,  cost:5, falloff:9 },
+  shotgun:  { name:'Shotgun',       pts:5, dmg:[33,47], acc:84, opt:2,  max:5,  cost:5, falloff:17 },
+  rifle:    { name:'Assault Rifle', pts:6, dmg:[26,35], acc:75, opt:6,  max:10, cost:6, falloff:5 },
+  lmg:      { name:'LMG',           pts:7, dmg:[31,41], acc:67, opt:6,  max:10, cost:7, falloff:4 },
+  chainsaw: { name:'Chainsaw',      pts:7, dmg:[58,78], acc:95, opt:1,  max:1,  cost:6, falloff:99, melee:true },
+  sniper:   { name:'Sniper Rifle',  pts:8, dmg:[45,60], acc:71, opt:10, max:16, cost:8, falloff:3, minPen:true },
+};
+
+const TRAITS = {
+  steady:   { name:'Steady Hands',  desc:'+8 accuracy if they have not moved this turn.' },
+  brawler:  { name:'Brawler',       desc:'+15 accuracy and +20% damage within 2 tiles.' },
+  medkit:   { name:'Deep Pockets',  desc:'Field Dressing heals 15 more HP.' },
+  tough:    { name:'Thick Skinned', desc:'+15 maximum health.' },
+  sapper:   { name:'Quick Sapper',  desc:'Deploy Barricade costs 2 less energy.' },
+  vigilant: { name:'Vigilant',      desc:'No accuracy penalty on return fire.' },
+  inspire:  { name:'Inspiring',     desc:'Rally grants 3 extra energy.' },
+  marksman: { name:'Marksman',      desc:'+10 accuracy at 7 tiles or further.' },
+  ghost:    { name:'Ghost',         desc:'-10 to all enemy accuracy against them.' },
+  fleet:    { name:'Fleet Footed',  desc:'+3 energy every turn.' },
+};
+
+const ROSTER = [
+  { id:'sunny',  name:'Sunny Deakins', cls:'commando', trait:'steady',   fav:'rifle'   },
+  { id:'baz',    name:'Baz Corrigan',  cls:'commando', trait:'brawler',  fav:'shotgun' },
+  { id:'pip',    name:'Nurse Pip',     cls:'medic',    trait:'medkit',   fav:'smg'     },
+  { id:'okoye',  name:'Doc Okoye',     cls:'medic',    trait:'tough',    fav:'pistol'  },
+  { id:'mo',     name:'Spanner Mo',    cls:'engineer', trait:'sapper',   fav:'shotgun' },
+  { id:'kate',   name:'Rivet Kate',    cls:'engineer', trait:'vigilant', fav:'lmg'     },
+  { id:'tosh',   name:'Major Tosh',    cls:'captain',  trait:'inspire',  fav:'rifle'   },
+  { id:'vee',    name:"Cap'n Vee",     cls:'captain',  trait:'marksman', fav:'sniper'  },
+  { id:'nikki',  name:'Shadow Nikki',  cls:'agent',    trait:'ghost',    fav:'sniper'  },
+  { id:'wisp',   name:'The Wisp',      cls:'agent',    trait:'fleet',    fav:'smg'     },
+];
+
+const ENEMY_NAMES = ['Scrag','Mullet','Bolts','Tinny','Grinder','Vic Rusk','Pox','Halfpint','Crank','Slick','Bruiser','Nails'];
+
+/* Map legend: # wall (blocks sight+movement, full cover)
+               o low cover (blocks movement, half cover, does not block sight)
+               ~ rubble (passable, costs extra energy)
+               * objective zone
+               A / B deployment zones (walkable floor)                      */
+const MAPS = [
+  { id:'alley', name:'Chip Shop Alley', blurb:'Tight back-street with two lanes of hard cover flanking the pavement.',
+    ground:'#3d4436', accent:'#4a5240',
+    rows:[
+      '################',
+      '#AA..o......oBB#',
+      '#AA..........BB#',
+      '#..###....###..#',
+      '#....o.**.o....#',
+      '#~...o.**.o...~#',
+      '#~...o.**.o...~#',
+      '#....o.**.o....#',
+      '#..###....###..#',
+      '#AA..........BB#',
+      '#AA..o......oBB#',
+      '################' ] },
+  { id:'scrap', name:'Scrapyard Sunday', blurb:'Open ground, scattered wrecks and long firing lanes. Snipers eat well here.',
+    ground:'#463d31', accent:'#52483a',
+    rows:[
+      '################',
+      '#AA.~....~...BB#',
+      '#A..o..oo..o..B#',
+      '#....#....#....#',
+      '#.o..#.**.#..o.#',
+      '#~...~.**.~...~#',
+      '#~...~.**.~...~#',
+      '#.o..#.**.#..o.#',
+      '#....#....#....#',
+      '#A..o..oo..o..B#',
+      '#AA.~....~...BB#',
+      '################' ] },
+  { id:'carpark', name:'Multi-Storey Mayhem', blurb:'Head-on car park brawl. Big central objective, nowhere to hide crossing it.',
+    ground:'#3a3a40', accent:'#44444c',
+    rows:[
+      '################',
+      '#AAAAAAAAAAAAAA#',
+      '#..o........o..#',
+      '#.###..~~..###.#',
+      '#......**......#',
+      '#~..o.****.o..~#',
+      '#~..o.****.o..~#',
+      '#......**......#',
+      '#.###..~~..###.#',
+      '#..o........o..#',
+      '#BBBBBBBBBBBBBB#',
+      '################' ] },
+];
+
+const MISSIONS = [
+  { id:1, name:'Turf War', map:'alley', budget:14, hold:5, rounds:16,
+    brief:'Three of theirs are squatting on our corner. Take the pavement and hold it.',
+    enemy:[ {cls:'commando',w:'rifle'}, {cls:'commando',w:'pistol'}, {cls:'engineer',w:'pistol'} ] },
+  { id:2, name:'Bin Day', map:'scrap', budget:20, hold:5, rounds:16,
+    brief:'They brought a medic to the scrapyard. Break the patch-up chain before it breaks you.',
+    enemy:[ {cls:'commando',w:'rifle'}, {cls:'medic',w:'pistol'}, {cls:'agent',w:'smg'}, {cls:'engineer',w:'shotgun'} ] },
+  { id:3, name:'Level Three', map:'carpark', budget:20, hold:5, rounds:16,
+    brief:'Straight up the middle of the car park. No flanks, no clever stuff. Just nerve.',
+    enemy:[ {cls:'captain',w:'rifle'}, {cls:'commando',w:'shotgun'}, {cls:'commando',w:'smg'}, {cls:'agent',w:'pistol'} ] },
+  { id:4, name:'The Long Lane', map:'scrap', budget:26, hold:5, rounds:18,
+    brief:'Two marksmen have the yard zeroed. Break line of sight or get picked apart.',
+    enemy:[ {cls:'agent',w:'sniper'}, {cls:'captain',w:'sniper'}, {cls:'medic',w:'pistol'},
+            {cls:'engineer',w:'pistol'} ] },
+  { id:5, name:'Last Orders', map:'alley', budget:26, hold:5, rounds:20,
+    brief:'Their whole firm, on our street, one last time. Everything you have learned, all at once.',
+    enemy:[ {cls:'captain',w:'rifle'}, {cls:'commando',w:'shotgun'}, {cls:'commando',w:'chainsaw'},
+            {cls:'medic',w:'pistol'}, {cls:'agent',w:'smg'} ] },
+];
+
+/* ------------------------------ STATE ------------------------------ */
+const G = {
+  screen:'title',
+  mode:'skirmish',          // 'campaign' | 'skirmish' | 'hotseat'
+  mission:null,
+  budget:20,
+  squad:[],                 // [{rosterId, weapon}]
+  map:null, grid:null, objective:[],
+  units:[], selected:null,
+  turn:'blue', round:1, phase:'deploy',
+  holds:{blue:0,red:0}, holdTarget:5, roundLimit:16,
+  reach:null, aimMode:null, // null | 'move' | 'ability'
+  deployQueue:[], deployTeam:'blue',
+  busy:false, over:false,
+  stats:{kills:0,losses:0,shots:0,hits:0},
+  fx:[], hover:null, muted:false,
+};
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const irnd=(a,b)=>Math.floor(rnd(a,b+1));
+const key=(x,y)=>y*COLS+x;
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+/* ------------------------------ GRID ------------------------------- */
+function loadMap(mapDef){
+  G.map = mapDef;
+  G.grid = mapDef.rows.map(r=>r.split(''));
+  G.objective = [];
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) if(G.grid[y][x]==='*') G.objective.push({x,y});
+}
+function inBounds(x,y){ return x>=0&&y>=0&&x<COLS&&y<ROWS; }
+function tileAt(x,y){ return inBounds(x,y) ? G.grid[y][x] : '#'; }
+function isSolid(x,y){ const c=tileAt(x,y); return c==='#'||c==='o'; }
+function blocksSight(x,y){ return tileAt(x,y)==='#'; }
+function isFloor(x,y){ const c=tileAt(x,y); return c==='.'||c==='~'||c==='*'||c==='A'||c==='B'; }
+function stepCost(x,y){ return tileAt(x,y)==='~' ? 3 : 2; }
+function unitAt(x,y){ return G.units.find(u=>u.alive&&u.x===x&&u.y===y) || null; }
+function isObjective(x,y){ return tileAt(x,y)==='*'; }
+function spawnTiles(team){
+  const ch = team==='blue' ? 'A' : 'B', out=[];
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) if(G.grid[y][x]===ch) out.push({x,y});
+  return out;
+}
+
+/* -------------------------- LINE OF SIGHT -------------------------- */
+function hasLOS(ax,ay,bx,by){
+  // supercover-ish Bresenham between tile centres; walls block, low cover does not
+  let x0=ax, y0=ay;
+  const dx=Math.abs(bx-ax), dy=Math.abs(by-ay);
+  const sx=ax<bx?1:-1, sy=ay<by?1:-1;
+  let err=dx-dy, guard=0;
+  while(guard++<200){
+    if(x0===bx&&y0===by) return true;
+    const e2=2*err;
+    let nx=x0, ny=y0;
+    if(e2>-dy){ err-=dy; nx+=sx; }
+    if(e2<dx){ err+=dx; ny+=sy; }
+    // diagonal squeeze: if both orthogonal neighbours are walls, sight is blocked
+    if(nx!==x0&&ny!==y0&&blocksSight(nx,y0)&&blocksSight(x0,ny)) return false;
+    x0=nx; y0=ny;
+    if(x0===bx&&y0===by) return true;
+    if(blocksSight(x0,y0)) return false;
+  }
+  return false;
+}
+
+/* ----------------------------- COVER ------------------------------- */
+// 0 = exposed (flanked), 1 = half cover, 2 = full cover — relative to the shooter
+function coverValue(tx,ty,fromX,fromY){
+  const dx=Math.sign(fromX-tx), dy=Math.sign(fromY-ty);
+  const cand=[];
+  if(dx) cand.push([tx+dx,ty]);
+  if(dy) cand.push([tx,ty+dy]);
+  let best=0;
+  for(const [cx,cy] of cand){
+    const c=tileAt(cx,cy);
+    if(c==='#') best=Math.max(best,2);
+    else if(c==='o') best=Math.max(best,1);
+  }
+  return best;
+}
+// best cover a tile offers against a set of threats — used by the AI and the move overlay
+function coverRating(x,y,threats){
+  if(!threats.length) return 0;
+  let sum=0;
+  for(const t of threats) sum += coverValue(x,y,t.x,t.y);
+  return sum/threats.length;
+}
+
+/* --------------------------- PATHFINDING --------------------------- */
+function computeReach(u){
+  // Dijkstra over energy cost; returns Map(key -> {cost, prev})
+  const seen=new Map();
+  seen.set(key(u.x,u.y),{cost:0,prev:null,x:u.x,y:u.y});
+  const q=[{x:u.x,y:u.y,cost:0}];
+  while(q.length){
+    q.sort((a,b)=>a.cost-b.cost);
+    const cur=q.shift();
+    const rec=seen.get(key(cur.x,cur.y));
+    if(rec.cost<cur.cost) continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=cur.x+dx, ny=cur.y+dy;
+      if(!inBounds(nx,ny)||!isFloor(nx,ny)) continue;
+      const occ=unitAt(nx,ny);
+      if(occ&&occ!==u&&occ.team!==u.team) continue;   // enemies block; squadmates can be squeezed past
+      const nc=cur.cost+stepCost(nx,ny);
+      if(nc>u.energy) continue;
+      const k=key(nx,ny), old=seen.get(k);
+      if(!old||nc<old.cost){
+        seen.set(k,{cost:nc,prev:key(cur.x,cur.y),x:nx,y:ny});
+        q.push({x:nx,y:ny,cost:nc});
+      }
+    }
+  }
+  seen.delete(key(u.x,u.y));
+  // Squadmates can be moved through but not stopped on, so keep those tiles in the
+  // graph for path reconstruction and mark them as invalid destinations.
+  for(const [,r] of seen) r.land = !unitAt(r.x,r.y);
+  return seen;
+}
+function pathTo(reach,u,tx,ty){
+  const out=[]; let k=key(tx,ty);
+  const start=key(u.x,u.y);
+  while(k!==null&&k!==start){
+    const r=reach.get(k); if(!r) return null;
+    out.unshift({x:r.x,y:r.y}); k=r.prev;
+  }
+  return out;
+}
+
+/* ---------------------------- SHOT MATH ---------------------------- */
+function weaponOf(u){ return WEAPONS[u.weapon]; }
+function canTarget(sh,tg){
+  const w=weaponOf(sh);
+  if(!tg.alive||tg.team===sh.team) return false;
+  const d=dist(sh,tg);
+  if(d>w.max+0.001) return false;
+  return hasLOS(sh.x,sh.y,tg.x,tg.y);
+}
+function shotInfo(sh,tg){
+  const w=weaponOf(sh), d=dist(sh,tg), cov=coverValue(tg.x,tg.y,sh.x,sh.y);
+  let acc = w.acc + CLASSES[sh.cls].aim;
+  acc -= Math.max(0,d-w.opt)*w.falloff;
+  if(w.minPen && d<3) acc -= 22;
+  acc -= cov===2?40:cov===1?20:0;
+  if(sh.trait==='steady'  && !sh.moved) acc += 8;
+  if(sh.trait==='brawler' && d<=2)      acc += 15;
+  if(sh.trait==='marksman'&& d>=7)      acc += 10;
+  if(tg.trait==='ghost') acc -= 10;
+  if(tg.smoke)      acc -= 25;
+  if(sh.suppressed) acc -= 25;
+  let dmgMul = 1;
+  if(cov===0) dmgMul *= 1.5;                                  // flanked
+  if(sh.trait==='brawler'&&d<=2) dmgMul *= 1.2;
+  return { chance:clamp(Math.round(acc),5,95), cover:cov, dist:d,
+           dmgLo:Math.round(w.dmg[0]*dmgMul), dmgHi:Math.round(w.dmg[1]*dmgMul), dmgMul };
+}
+
+/* ============================== RENDER ============================== */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let shake = 0;
+
+function px(v){ return v*TILE; }
+function cx(x){ return x*TILE + TILE/2; }
+function cy(y){ return y*TILE + TILE/2; }
+
+function roundRect(c,x,y,w,h,r){
+  c.beginPath();
+  c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r);
+  c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r);
+  c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y); c.closePath();
+}
+
+function drawFloor(){
+  const m=G.map;
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    const c=G.grid[y][x];
+    if(c==='#') continue;
+    ctx.fillStyle = ((x+y)%2===0) ? m.ground : m.accent;
+    ctx.fillRect(px(x),px(y),TILE,TILE);
+    if(c==='~'){
+      ctx.fillStyle='rgba(0,0,0,.28)';
+      for(let i=0;i<7;i++){
+        const rx=px(x)+((i*13+x*7+y*3)%TILE), ry=px(y)+((i*23+y*11+x*5)%TILE);
+        ctx.fillRect(rx,ry,4,3);
+      }
+    }
+    ctx.strokeStyle='rgba(0,0,0,.16)'; ctx.lineWidth=1;
+    ctx.strokeRect(px(x)+.5,px(y)+.5,TILE-1,TILE-1);
+  }
+}
+
+function drawObjective(){
+  if(!G.objective.length) return;
+  const owner = objectiveOwner();
+  const tint = owner==='blue' ? 'rgba(74,163,232,.20)' : owner==='red' ? 'rgba(232,86,63,.20)' : 'rgba(242,193,78,.13)';
+  ctx.save();
+  ctx.beginPath();
+  for(const t of G.objective) ctx.rect(px(t.x),px(t.y),TILE,TILE);
+  ctx.clip();
+  ctx.fillStyle=tint;
+  ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.strokeStyle='rgba(242,193,78,.22)'; ctx.lineWidth=5;
+  for(let i=-ROWS*TILE;i<COLS*TILE;i+=22){
+    ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+ROWS*TILE,ROWS*TILE); ctx.stroke();
+  }
+  ctx.restore();
+  // outline of the whole zone
+  ctx.strokeStyle = owner==='blue' ? '#4aa3e8' : owner==='red' ? '#e8563f' : '#f2c14e';
+  ctx.lineWidth=3;
+  for(const t of G.objective){
+    for(const [dx,dy,x1,y1,x2,y2] of [
+      [0,-1,0,0,1,0],[0,1,0,1,1,1],[-1,0,0,0,0,1],[1,0,1,0,1,1]]){
+      if(!isObjective(t.x+dx,t.y+dy)){
+        ctx.beginPath();
+        ctx.moveTo(px(t.x)+x1*TILE,px(t.y)+y1*TILE);
+        ctx.lineTo(px(t.x)+x2*TILE,px(t.y)+y2*TILE);
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+function drawLowCover(x,y){
+  const bx=px(x), by=px(y);
+  ctx.save();
+  ctx.fillStyle='rgba(0,0,0,.3)';
+  ctx.fillRect(bx+5,by+TILE-11,TILE-10,7);
+  for(let r=0;r<2;r++) for(let cIdx=0;cIdx<2;cIdx++){
+    const w=17,h=13, ox=bx+6+cIdx*19+(r%2?3:0), oy=by+9+r*15;
+    roundRect(ctx,ox,oy,w,h,5);
+    ctx.fillStyle = r===0 ? '#c39a55' : '#a8823f';
+    ctx.fill();
+    ctx.strokeStyle='#5c451c'; ctx.lineWidth=2; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawWall(x,y){
+  const bx=px(x), by=px(y), lift=7;
+  ctx.fillStyle='#2a241f';                      // base / side
+  ctx.fillRect(bx,by,TILE,TILE);
+  ctx.fillStyle='#4d443a';
+  ctx.fillRect(bx,by-lift,TILE,TILE);           // top face
+  ctx.fillStyle='rgba(255,255,255,.06)';
+  ctx.fillRect(bx,by-lift,TILE,6);
+  ctx.strokeStyle='#191512'; ctx.lineWidth=2;
+  ctx.strokeRect(bx+1,by-lift+1,TILE-2,TILE-2);
+  ctx.strokeStyle='rgba(0,0,0,.28)'; ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(bx,by-lift+TILE/2); ctx.lineTo(bx+TILE,by-lift+TILE/2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(bx+TILE/2,by-lift); ctx.lineTo(bx+TILE/2,by-lift+TILE/2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(bx+TILE/4,by-lift+TILE/2); ctx.lineTo(bx+TILE/4,by-lift+TILE); ctx.stroke();
+}
+
+function drawTerrain(){
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    const c=G.grid[y][x];
+    if(c==='o') drawLowCover(x,y);
+  }
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    if(G.grid[y][x]==='#') drawWall(x,y);
+  }
+}
+
+function drawReach(){
+  if(!G.reach||!G.selected||G.busy) return;
+  const u=G.selected, w=weaponOf(u);
+  ctx.save();
+  for(const [,r] of G.reach){
+    if(!r.land) continue;
+    const canShootAfter = r.cost + w.cost <= u.energy;
+    ctx.fillStyle = canShootAfter ? 'rgba(74,163,232,.26)' : 'rgba(74,163,232,.13)';
+    ctx.fillRect(px(r.x)+2,px(r.y)+2,TILE-4,TILE-4);
+    ctx.strokeStyle = canShootAfter ? 'rgba(120,200,255,.5)' : 'rgba(120,200,255,.22)';
+    ctx.lineWidth=2;
+    ctx.strokeRect(px(r.x)+2.5,px(r.y)+2.5,TILE-5,TILE-5);
+  }
+  ctx.restore();
+}
+
+function drawPathPreview(){
+  if(!G.hover||!G.reach||!G.selected||G.busy) return;
+  const hr=G.reach.get(key(G.hover.x,G.hover.y));
+  if(!hr||!hr.land) return;
+  const p=pathTo(G.reach,G.selected,G.hover.x,G.hover.y);
+  if(!p||!p.length) return;
+  ctx.save();
+  ctx.strokeStyle='#f2c14e'; ctx.lineWidth=4; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.setLineDash([9,6]);
+  ctx.beginPath(); ctx.moveTo(cx(G.selected.x),cy(G.selected.y));
+  for(const s of p) ctx.lineTo(cx(s.x),cy(s.y));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const last=p[p.length-1];
+  ctx.beginPath(); ctx.arc(cx(last.x),cy(last.y),8,0,7); ctx.fillStyle='#f2c14e'; ctx.fill();
+  ctx.strokeStyle='#000'; ctx.lineWidth=2; ctx.stroke();
+  ctx.restore();
+}
+
+function drawTargets(){
+  if(!G.selected||G.busy||G.selected.team!==G.turn) return;
+  const u=G.selected;
+  if(G.aimMode==='ability'){
+    for(const t of abilityTargets(u)){
+      ctx.save();
+      ctx.strokeStyle='#a879d8'; ctx.lineWidth=3;
+      ctx.setLineDash([6,4]);
+      ctx.strokeRect(px(t.x)+3.5,px(t.y)+3.5,TILE-7,TILE-7);
+      ctx.restore();
+    }
+    return;
+  }
+  if(u.energy<weaponOf(u).cost) return;
+  for(const e of G.units){
+    if(!canTarget(u,e)) continue;
+    const info=shotInfo(u,e);
+    ctx.save();
+    ctx.strokeStyle = info.cover===0?'#e8563f':info.cover===1?'#f2c14e':'#7fc45a';
+    ctx.lineWidth=3;
+    const b=px(e.x), t=px(e.y), L=13;
+    ctx.beginPath();
+    ctx.moveTo(b+3,t+3+L); ctx.lineTo(b+3,t+3); ctx.lineTo(b+3+L,t+3);
+    ctx.moveTo(b+TILE-3-L,t+3); ctx.lineTo(b+TILE-3,t+3); ctx.lineTo(b+TILE-3,t+3+L);
+    ctx.moveTo(b+TILE-3,t+TILE-3-L); ctx.lineTo(b+TILE-3,t+TILE-3); ctx.lineTo(b+TILE-3-L,t+TILE-3);
+    ctx.moveTo(b+3+L,t+TILE-3); ctx.lineTo(b+3,t+TILE-3); ctx.lineTo(b+3,t+TILE-3-L);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawDeployZone(){
+  if(G.phase!=='deploy') return;
+  const tiles=spawnTiles(G.deployTeam);
+  const col = G.deployTeam==='blue' ? 'rgba(74,163,232,' : 'rgba(232,86,63,';
+  ctx.save();
+  const pulse=0.18+0.12*Math.sin(performance.now()/300);
+  for(const t of tiles){
+    if(unitAt(t.x,t.y)) continue;
+    ctx.fillStyle=col+pulse+')';
+    ctx.fillRect(px(t.x)+2,px(t.y)+2,TILE-4,TILE-4);
+    ctx.strokeStyle=col+'.6)'; ctx.lineWidth=2;
+    ctx.strokeRect(px(t.x)+2.5,px(t.y)+2.5,TILE-5,TILE-5);
+  }
+  ctx.restore();
+}
+
+/* --------------------------- UNIT SPRITE --------------------------- */
+function drawUnit(u){
+  const X = u.px!=null?u.px:cx(u.x), Y = u.py!=null?u.py:cy(u.y);
+  const team = u.team==='blue' ? {main:'#3f7fc4',dark:'#204a78',light:'#68a8e8'}
+                              : {main:'#c4483a',dark:'#7d2416',light:'#e87a63'};
+  const acc = CLASSES[u.cls].color;
+  ctx.save();
+  ctx.translate(X,Y);
+
+  // shadow + team-coloured base pad (the primary at-a-glance team read)
+  ctx.fillStyle='rgba(0,0,0,.38)';
+  ctx.beginPath(); ctx.ellipse(0,15,16,8,0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0,13,16,8,0,0,7);
+  ctx.fillStyle=team.main; ctx.fill();
+  ctx.strokeStyle='#14110f'; ctx.lineWidth=2.5; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0,13,10,4.5,0,0,7);
+  ctx.fillStyle=team.dark; ctx.fill();
+
+  ctx.scale(1.1,1.1);
+  if(u.dying){ ctx.globalAlpha = clamp(u.dying,0,1); ctx.rotate((1-u.dying)*1.2); }
+
+  ctx.save();
+  ctx.rotate(u.facing||0);
+  // weapon
+  const w=weaponOf(u);
+  ctx.fillStyle='#2b2b2f'; ctx.strokeStyle='#111'; ctx.lineWidth=2;
+  if(w.melee){ roundRect(ctx,6,-5,17,10,3); }
+  else if(u.weapon==='sniper'){ roundRect(ctx,2,-3,26,6,2); }
+  else if(u.weapon==='pistol'){ roundRect(ctx,4,-3,11,6,2); }
+  else if(u.weapon==='shotgun'){ roundRect(ctx,3,-4,19,8,3); }
+  else if(u.weapon==='lmg'){ roundRect(ctx,3,-5,21,10,3); }
+  else { roundRect(ctx,3,-3,19,7,2); }
+  ctx.fill(); ctx.stroke();
+  // torso
+  roundRect(ctx,-11,-11,22,22,8);
+  ctx.fillStyle=team.main; ctx.fill();
+  ctx.strokeStyle='#14110f'; ctx.lineWidth=2.5; ctx.stroke();
+  // class flash across the chest
+  ctx.save(); ctx.beginPath(); roundRect(ctx,-11,-11,22,22,8); ctx.clip();
+  ctx.fillStyle=acc; ctx.fillRect(-11,4,22,4);
+  ctx.restore();
+  // shoulders
+  ctx.fillStyle=team.dark;
+  ctx.beginPath(); ctx.arc(-2,-11,5,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(-2, 11,5,0,7); ctx.fill();
+  ctx.restore();
+
+  // head (screen-aligned so faces always read)
+  ctx.beginPath(); ctx.arc(0,-3,8,0,7);
+  ctx.fillStyle='#e8b58a'; ctx.fill();
+  ctx.strokeStyle='#14110f'; ctx.lineWidth=2.5; ctx.stroke();
+  // headgear by class
+  ctx.fillStyle=acc; ctx.strokeStyle='#14110f'; ctx.lineWidth=2;
+  if(u.cls==='commando'){ roundRect(ctx,-9,-13,18,8,4); ctx.fill(); ctx.stroke(); }
+  else if(u.cls==='medic'){ roundRect(ctx,-9,-13,18,7,3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.fillRect(-1.5,-12.5,3,6); ctx.fillRect(-4,-10,9,3); }
+  else if(u.cls==='engineer'){ roundRect(ctx,-10,-14,20,8,4); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-10,-7); ctx.lineTo(-14,-4); ctx.lineTo(-9,-4); ctx.closePath();
+    ctx.fillStyle=acc; ctx.fill(); ctx.stroke(); }
+  else if(u.cls==='captain'){ roundRect(ctx,-9,-13,18,7,2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#f2c14e'; ctx.fillRect(-3,-17,6,4); ctx.strokeRect(-3,-17,6,4); }
+  else { roundRect(ctx,-9,-12,18,6,3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#14110f'; ctx.fillRect(-8,-7,16,4); }
+
+  if(u.smoke){
+    ctx.fillStyle='rgba(210,210,220,.42)';
+    for(let i=0;i<4;i++){
+      const a=performance.now()/600+i*1.6;
+      ctx.beginPath(); ctx.arc(Math.cos(a)*13,Math.sin(a)*13-2,9,0,7); ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  // ---- overlays: selection, health, energy ----
+  ctx.save();
+  ctx.translate(X,Y);
+  if(G.selected===u&&!u.dying){
+    ctx.strokeStyle='#f2c14e'; ctx.lineWidth=3;
+    ctx.setLineDash([7,5]); ctx.lineDashOffset=-performance.now()/45;
+    ctx.beginPath(); ctx.arc(0,0,21,0,7); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if(!u.dying){
+    const bw=30, hp=clamp(u.hp/u.maxHp,0,1);
+    ctx.fillStyle='#14110f'; ctx.fillRect(-bw/2-1,-27,bw+2,6);
+    ctx.fillStyle = hp>.5?'#7fc45a':hp>.25?'#f2c14e':'#e8563f';
+    ctx.fillRect(-bw/2,-26,bw*hp,4);
+    // reaction-fire readiness pip
+    if(u.energy>=weaponOf(u).cost&&u.team!==G.turn){
+      ctx.fillStyle='#f2c14e';
+      ctx.beginPath(); ctx.arc(bw/2+6,-24,4,0,7); ctx.fill();
+      ctx.strokeStyle='#14110f'; ctx.lineWidth=1.5; ctx.stroke();
+    }
+    if(u.team===G.turn&&G.phase==='battle'){
+      const pipsN=Math.floor(u.energy/2), maxPips=Math.ceil(u.maxEnergy/2);
+      for(let i=0;i<maxPips;i++){
+        ctx.fillStyle = i<pipsN ? '#4aa3e8' : 'rgba(0,0,0,.45)';
+        ctx.fillRect(-maxPips*3+i*6,-20,4,3);
+      }
+    }
+    if(u.suppressed){
+      ctx.fillStyle='#e8563f'; ctx.font='bold 11px Barlow Condensed, sans-serif';
+      ctx.textAlign='center'; ctx.fillText('PINNED',0,26);
+    }
+  }
+  ctx.restore();
+}
+
+/* ------------------------------- FX -------------------------------- */
+function addTracer(a,b,hit){ G.fx.push({t:'tracer',x1:cx(a.x),y1:cy(a.y),x2:cx(b.x),y2:cy(b.y),life:1,hit}); }
+function addText(x,y,txt,col){ G.fx.push({t:'text',x:cx(x),y:cy(y),txt,col,life:1}); }
+function addBurst(x,y,col){ G.fx.push({t:'burst',x:cx(x),y:cy(y),col,life:1}); }
+
+function drawFX(dt){
+  for(const f of G.fx){
+    f.life -= dt*(f.t==='text'?1.1:2.6);
+    ctx.save();
+    if(f.t==='tracer'){
+      ctx.globalAlpha=clamp(f.life,0,1);
+      ctx.strokeStyle=f.hit?'#fff0b8':'#8ea0b0'; ctx.lineWidth=3; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(f.x1,f.y1); ctx.lineTo(f.x2,f.y2); ctx.stroke();
+      ctx.strokeStyle='rgba(242,193,78,.5)'; ctx.lineWidth=7;
+      ctx.beginPath(); ctx.moveTo(f.x1,f.y1); ctx.lineTo(f.x2,f.y2); ctx.stroke();
+    } else if(f.t==='text'){
+      ctx.globalAlpha=clamp(f.life,0,1);
+      ctx.font='bold 20px Bungee, Impact, sans-serif'; ctx.textAlign='center';
+      ctx.lineWidth=4; ctx.strokeStyle='#14110f';
+      const yy=f.y-16-(1-f.life)*26;
+      ctx.strokeText(f.txt,f.x,yy); ctx.fillStyle=f.col; ctx.fillText(f.txt,f.x,yy);
+    } else if(f.t==='burst'){
+      ctx.globalAlpha=clamp(f.life,0,1);
+      const r=(1-f.life)*24+6;
+      ctx.strokeStyle=f.col; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.arc(f.x,f.y,r,0,7); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  G.fx=G.fx.filter(f=>f.life>0);
+}
+
+let lastT=performance.now();
+function render(){
+  const now=performance.now(), dt=Math.min(.05,(now-lastT)/1000); lastT=now;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if(shake>0){ shake-=dt*4; ctx.translate(rnd(-shake,shake)*7,rnd(-shake,shake)*7); }
+  if(G.grid){
+    drawFloor(); drawObjective(); drawDeployZone(); drawReach(); drawTerrain();
+    drawPathPreview(); drawTargets();
+    const order=[...G.units].sort((a,b)=>(a.py!=null?a.py:cy(a.y))-(b.py!=null?b.py:cy(b.y)));
+    for(const u of order){ if(u.dying>0) u.dying-=dt*1.6; if(u.alive||u.dying>0) drawUnit(u); }
+    drawFX(dt);
+  }
+  requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+
+/* ============================ AUDIO ============================ */
+let AC=null;
+function sfx(kind){
+  if(G.muted) return;
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==='suspended') AC.resume();
+    const t=AC.currentTime, o=AC.createOscillator(), g=AC.createGain();
+    o.connect(g); g.connect(AC.destination);
+    const P={ shot:[220,60,'square',.10,.09], hit:[140,40,'sawtooth',.14,.14],
+              miss:[900,700,'triangle',.05,.07], move:[420,430,'sine',.03,.05],
+              die:[180,50,'sawtooth',.18,.42], ui:[600,620,'square',.05,.04],
+              win:[440,880,'triangle',.16,.5], lose:[300,110,'sawtooth',.16,.6],
+              heal:[520,780,'sine',.10,.22], build:[260,180,'square',.10,.16] }[kind]||[440,440,'sine',.05,.06];
+    o.type=P[2];
+    o.frequency.setValueAtTime(P[0],t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(30,P[1]),t+P[4]);
+    g.gain.setValueAtTime(P[3],t);
+    g.gain.exponentialRampToValueAtTime(.0008,t+P[4]);
+    o.start(t); o.stop(t+P[4]+.02);
+  }catch(e){}
+}
+
+/* ============================ UNITS ============================ */
+let uid=1;
+function makeUnit(team,cls,weapon,name,trait){
+  const C=CLASSES[cls];
+  let maxHp=C.hp;
+  if(trait==='tough') maxHp+=15;
+  let maxEnergy=C.energy;
+  if(trait==='fleet') maxEnergy+=3;
+  return { id:uid++, team, cls, weapon, name, trait,
+           hp:maxHp, maxHp, energy:maxEnergy, maxEnergy,
+           x:-1, y:-1, px:null, py:null, facing: team==='blue'?0:Math.PI,
+           alive:true, dying:0, moved:false, smoke:false, suppressed:false, reactions:0, placed:false };
+}
+function faceTo(u,t){ u.facing=Math.atan2(cy(t.y)-cy(u.y),cx(t.x)-cx(u.x)); }
+function livingOf(team){ return G.units.filter(u=>u.alive&&u.team===team); }
+function enemiesOf(u){ return G.units.filter(e=>e.alive&&e.team!==u.team); }
+
+/* ========================== OBJECTIVE =========================== */
+function objectiveOwner(){
+  const b=livingOf('blue').filter(u=>isObjective(u.x,u.y)).length;
+  const r=livingOf('red').filter(u=>isObjective(u.x,u.y)).length;
+  if(b>0&&r===0) return 'blue';
+  if(r>0&&b===0) return 'red';
+  return null;
+}
+
+/* =========================== ACTIONS ============================ */
+async function animStep(u,tx,ty){
+  const sx=cx(u.x), sy=cy(u.y), ex=cx(tx), ey=cy(ty), dur=115;
+  u.facing=Math.atan2(ey-sy,ex-sx);
+  const t0=performance.now();
+  await new Promise(res=>{
+    (function tick(){
+      const p=clamp((performance.now()-t0)/dur,0,1);
+      u.px=sx+(ex-sx)*p; u.py=sy+(ey-sy)*p;
+      if(p<1) requestAnimationFrame(tick);
+      else { u.x=tx; u.y=ty; u.px=ex; u.py=ey; res(); }
+    })();
+  });
+}
+
+async function doMove(u,path){
+  G.busy=true; G.reach=null; G.aimMode=null;
+  for(const step of path){
+    if(!u.alive) break;
+    u.energy -= stepCost(step.x,step.y);
+    u.moved = true;
+    sfx('move');
+    await animStep(u,step.x,step.y);
+    await reactionCheck(u);
+    if(!u.alive) break;
+  }
+  G.busy=false;
+  refreshUI();
+  if(u.alive&&u.team===G.turn) selectUnit(u);
+  checkWin();
+}
+
+// Any opposing operative with energy banked takes a shot of opportunity.
+async function reactionCheck(mover){
+  const watchers = G.units.filter(w =>
+      w.alive && w.team!==mover.team && !w.suppressed &&
+      w.reactions < 1 && w.energy >= weaponOf(w).cost && canTarget(w,mover));
+  for(const w of watchers){
+    if(!mover.alive) break;
+    w.reactions++;
+    log(`<b>${w.name}</b> fires on the move!`,'sys');
+    await doShoot(w,mover,true);
+    await sleep(120);
+  }
+}
+
+async function doShoot(sh,tg,reaction){
+  const w=weaponOf(sh);
+  sh.energy -= w.cost;
+  faceTo(sh,tg);
+  const info=shotInfo(sh,tg);
+  let chance=info.chance;
+  if(reaction && sh.trait!=='vigilant') chance=clamp(chance-15,5,95);
+  if(sh.team==='blue'){ G.stats.shots++; }
+  sfx('shot'); shake=.45;
+  const hit = Math.random()*100 < chance;
+  addTracer(sh,tg,hit);
+  refreshUI();
+  await sleep(200);
+  if(hit){
+    let dmg=irnd(info.dmgLo,info.dmgHi);
+    if(reaction) dmg=Math.round(dmg*0.6);      // snap shot off a banked pool
+    tg.hp-=dmg;
+    if(sh.team==='blue') G.stats.hits++;
+    sfx('hit'); shake=.8;
+    addText(tg.x,tg.y,'-'+dmg, info.cover===0?'#ffd45e':'#ff7a63');
+    addBurst(tg.x,tg.y,'#ffb03a');
+    const flank = info.cover===0 ? ' <span class="hit">FLANKED!</span>' : '';
+    log(`<b>${sh.name}</b> hits <b>${tg.name}</b> for ${dmg}.${flank}`,'hit');
+    if(tg.hp<=0) await killUnit(tg,sh);
+  }else{
+    sfx('miss');
+    addText(tg.x,tg.y,'MISS','#c9d4dd');
+    log(`<b>${sh.name}</b> misses <b>${tg.name}</b>. (${chance}%)`,'miss');
+  }
+  await sleep(180);
+  refreshUI();
+}
+
+async function killUnit(u,by){
+  u.alive=false; u.dying=1; u.hp=0;
+  sfx('die'); shake=1;
+  addText(u.x,u.y,'DOWN','#e8563f');
+  log(`<b>${u.name}</b> is down.`,'sys');
+  if(u.team==='red') G.stats.kills++; else G.stats.losses++;
+  if(G.selected===u) G.selected=null;
+  await sleep(240);
+  refreshUI();
+}
+
+function abilityTargets(u){
+  const A=CLASSES[u.cls].ability, out=[];
+  if(u.energy < abilityCost(u)) return out;
+  if(A.targets==='self') return [{x:u.x,y:u.y,unit:u}];
+  if(A.targets==='tile'){
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=u.x+dx, ny=u.y+dy, c=tileAt(nx,ny);
+      if((c==='.'||c==='A'||c==='B') && !unitAt(nx,ny)) out.push({x:nx,y:ny});
+    }
+    return out;
+  }
+  for(const t of G.units){
+    if(!t.alive) continue;
+    if(A.targets==='ally'  && (t.team!==u.team)) continue;
+    if(A.targets==='enemy' && (t.team===u.team)) continue;
+    if(A.id==='rally' && (t===u || t.energy>=t.maxEnergy)) continue;
+    if(A.id==='heal'  && t.hp>=t.maxHp) continue;
+    if(dist(u,t)>A.range+0.001) continue;
+    if(!hasLOS(u.x,u.y,t.x,t.y)) continue;
+    out.push({x:t.x,y:t.y,unit:t});
+  }
+  return out;
+}
+function abilityCost(u){
+  const A=CLASSES[u.cls].ability;
+  let c=A.cost;
+  if(A.id==='barricade' && u.trait==='sapper') c-=2;
+  return c;
+}
+
+async function doAbility(u,target){
+  const A=CLASSES[u.cls].ability;
+  G.busy=true; G.aimMode=null; G.reach=null;
+  u.energy-=abilityCost(u);
+  if(target.unit) faceTo(u,target.unit); else faceTo(u,target);
+  if(A.id==='heal'){
+    const amt = 35 + (u.trait==='medkit'?15:0);
+    const t=target.unit;
+    const healed=Math.min(amt,t.maxHp-t.hp);
+    t.hp+=healed;
+    sfx('heal'); addText(t.x,t.y,'+'+healed,'#7fc45a'); addBurst(t.x,t.y,'#7fc45a');
+    log(`<b>${u.name}</b> patches up <b>${t.name}</b> for ${healed}.`,'sys');
+  } else if(A.id==='rally'){
+    const amt = 5 + (u.trait==='inspire'?3:0);
+    const t=target.unit;
+    const given=Math.min(amt,t.maxEnergy-t.energy);
+    t.energy+=given;
+    sfx('ui'); addText(t.x,t.y,'+'+given+' EN','#4aa3e8'); addBurst(t.x,t.y,'#4aa3e8');
+    log(`<b>${u.name}</b> rallies <b>${t.name}</b> (+${given} energy).`,'sys');
+  } else if(A.id==='suppress'){
+    const t=target.unit;
+    t.suppressed=true;
+    sfx('shot'); shake=.6; addTracer(u,t,false); addText(t.x,t.y,'PINNED','#e8563f');
+    log(`<b>${u.name}</b> pins <b>${t.name}</b> down.`,'sys');
+  } else if(A.id==='barricade'){
+    G.grid[target.y][target.x]='o';
+    sfx('build'); addBurst(target.x,target.y,'#f2c14e');
+    log(`<b>${u.name}</b> drops a barricade.`,'sys');
+  } else if(A.id==='smoke'){
+    u.smoke=true;
+    sfx('build'); addBurst(u.x,u.y,'#c8c8d2');
+    log(`<b>${u.name}</b> disappears into smoke.`,'sys');
+  }
+  await sleep(320);
+  G.busy=false;
+  refreshUI();
+  checkWin();
+}
+
+/* =========================== TURN FLOW =========================== */
+function isHuman(team){ return G.mode==='hotseat' ? true : team==='blue'; }
+
+function beginTurn(team){
+  G.turn=team;
+  for(const u of G.units){
+    u.reactions=0;
+    if(u.team===team){
+      u.energy=u.maxEnergy;
+      // Second-mover compensation: the team that does not open the match starts
+      // its first turn with a little extra in the tank.
+      if(G.round===1 && team!=='blue') u.energy+=4;
+      u.moved=false;
+      u.suppressed=false;
+      u.smoke=false;
+    }
+  }
+  G.selected=null; G.aimMode=null; G.reach=null;
+  const first=livingOf(team)[0];
+  if(first&&isHuman(team)) selectUnit(first);
+  refreshUI();
+  banner(team==='blue' ? (G.mode==='hotseat'?'BLUE TURN':'YOUR TURN') : (G.mode==='hotseat'?'RED TURN':'ENEMY TURN'));
+  if(!isHuman(team)) setTimeout(()=>{ runAI(); },700);
+}
+
+async function endTurn(){
+  if(G.busy||G.over) return;
+  G.busy=true; G.selected=null; G.reach=null; G.aimMode=null;
+  if(G.turn==='blue'){
+    G.busy=false;
+    beginTurn('red');
+  }else{
+    await scoreRound();
+    G.busy=false;
+    if(!G.over){ G.round++; refreshUI(); beginTurn('blue'); }
+  }
+}
+
+async function scoreRound(){
+  const owner=objectiveOwner();
+  if(owner){
+    G.holds[owner]++;
+    G.holds[owner==='blue'?'red':'blue']=0;
+    const nm = owner==='blue' ? 'Blue' : 'Red';
+    log(`<span class="sys">${nm} holds the objective (${G.holds[owner]}/${G.holdTarget}).</span>`);
+    for(const t of G.objective) addBurst(t.x,t.y, owner==='blue'?'#4aa3e8':'#e8563f');
+    sfx('ui');
+  }else{
+    const contested = livingOf('blue').some(u=>isObjective(u.x,u.y)) && livingOf('red').some(u=>isObjective(u.x,u.y));
+    if(contested) log('<span class="sys">Objective contested — no progress.</span>');
+  }
+  refreshUI();
+  await sleep(420);
+  checkWin(true);
+}
+
+function checkWin(afterScore){
+  if(G.over) return;
+  const b=livingOf('blue').length, r=livingOf('red').length;
+  if(r===0&&b>0)      return finish('blue','Enemy squad eliminated.');
+  if(b===0&&r>0)      return finish('red','Your squad was wiped out.');
+  if(b===0&&r===0)    return finish('draw','Mutual destruction.');
+  if(G.holds.blue>=G.holdTarget) return finish('blue',`Objective held for ${G.holdTarget} rounds.`);
+  if(G.holds.red>=G.holdTarget)  return finish('red',`They held the objective for ${G.holdTarget} rounds.`);
+  if(afterScore && G.round>=G.roundLimit){
+    if(G.holds.blue>G.holds.red) return finish('blue','Time up — you led on objective control.');
+    if(G.holds.red>G.holds.blue) return finish('red','Time up — they led on objective control.');
+    return finish('draw','Time up — dead level.');
+  }
+}
+
+/* ============================== AI =============================== */
+function objCentre(){
+  if(!G.objective.length) return {x:COLS/2,y:ROWS/2};
+  let sx=0,sy=0; for(const t of G.objective){sx+=t.x;sy+=t.y;}
+  return {x:sx/G.objective.length, y:sy/G.objective.length};
+}
+function distToObjective(x,y){
+  let best=99;
+  for(const t of G.objective) best=Math.min(best,Math.hypot(t.x-x,t.y-y));
+  return best;
+}
+function objectiveUrgency(team){
+  const me=G.holds[team], them=G.holds[team==='blue'?'red':'blue'];
+  let u=1.2;
+  if(them>me) u+=0.55*(them-me);                        // losing the hold race
+  if(objectiveOwner()===(team==='blue'?'red':'blue')) u+=0.5;  // they are scoring right now
+  if(G.round>G.roundLimit*0.35) u+=0.4;
+  if(G.round>G.roundLimit*0.6)  u+=0.6;
+  return clamp(u,1.2,3);
+}
+function evalFrom(u,x,y,fn){
+  const ox=u.x, oy=u.y;
+  u.x=x; u.y=y;
+  try{ return fn(); } finally { u.x=ox; u.y=oy; }
+}
+function aiScore(u,c,foes){
+  const w=weaponOf(u), energyLeft=u.energy-c.cost;
+  return evalFrom(u,c.x,c.y,()=>{
+    let bestShot=0, bestTarget=null;
+    if(energyLeft>=w.cost){
+      for(const f of foes){
+        if(!canTarget(u,f)) continue;
+        const info=shotInfo(u,f);
+        const avg=(info.dmgLo+info.dmgHi)/2;
+        let v=(info.chance/100)*avg;
+        if(avg>=f.hp) v*=1.9;
+        if(f.cls==='medic') v*=1.25;
+        if(v>bestShot){ bestShot=v; bestTarget=f; }
+      }
+    }
+    let score=bestShot*1.5;
+    score += coverRating(c.x,c.y,foes)*14;
+    let seen=0;
+    for(const f of foes)
+      if(hasLOS(f.x,f.y,c.x,c.y) && Math.hypot(f.x-c.x,f.y-c.y)<=WEAPONS[f.weapon].max) seen++;
+    score -= seen*4;
+    const urg=objectiveUrgency(u.team);
+    if(isObjective(c.x,c.y)) score += 30*urg;
+    else score -= distToObjective(c.x,c.y)*2.3*urg;
+    score -= c.cost*0.35;
+    return {score,bestTarget};
+  });
+}
+async function aiShoot(u){
+  let guard=0;
+  while(u.alive && !G.over && u.energy>=weaponOf(u).cost && guard++<4){
+    let best=null;
+    for(const f of enemiesOf(u)){
+      if(!canTarget(u,f)) continue;
+      const info=shotInfo(u,f);
+      const avg=(info.dmgLo+info.dmgHi)/2;
+      let v=(info.chance/100)*avg;
+      if(avg>=f.hp) v*=2.2;
+      if(!best||v>best.v) best={f,v,info};
+    }
+    if(!best) return;
+    const finisher = (best.info.dmgLo>=best.f.hp);
+    if(best.info.chance<25 && !finisher) return;   // bank the energy for return fire instead
+    await doShoot(u,best.f,false);
+    await sleep(150);
+  }
+}
+async function aiTakeTurn(u){
+  const foes=enemiesOf(u);
+  if(!foes.length||!u.alive) return;
+
+  // Medic: patch up the worst-off ally before anything else.
+  if(u.cls==='medic'){
+    const opts=abilityTargets(u).map(t=>t.unit).filter(Boolean).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp);
+    if(opts.length && opts[0].hp/opts[0].maxHp < .7) await doAbility(u,{x:opts[0].x,y:opts[0].y,unit:opts[0]});
+  }
+  if(!u.alive||G.over) return;
+
+  // Reposition to the highest-scoring reachable tile.
+  const reach=computeReach(u);
+  const cands=[{x:u.x,y:u.y,cost:0}];
+  for(const [,r] of reach) if(r.land) cands.push({x:r.x,y:r.y,cost:r.cost});
+  let best=null;
+  for(const c of cands){
+    const s=aiScore(u,c,foes);
+    if(!best||s.score>best.score) best={x:c.x,y:c.y,cost:c.cost,score:s.score};
+  }
+  if(best && (best.x!==u.x||best.y!==u.y)){
+    const path=pathTo(reach,u,best.x,best.y);
+    if(path&&path.length) await doMove(u,path);
+  }
+  if(!u.alive||G.over) return;
+
+  await aiShoot(u);
+  if(!u.alive||G.over) return;
+
+  // Spend anything left over on a worthwhile ability, otherwise bank it for return fire.
+  const A=CLASSES[u.cls].ability, tgts=abilityTargets(u);
+  if(u.energy>=abilityCost(u) && tgts.length){
+    if(A.id==='rally'){
+      const t=tgts.map(t=>t.unit).filter(t=>t&&t.energy<t.maxEnergy)
+                  .sort((a,b)=>a.energy-b.energy)[0];
+      if(t){ await doAbility(u,{x:t.x,y:t.y,unit:t}); await aiShoot(t); }
+    } else if(A.id==='suppress'){
+      const t=tgts.map(t=>t.unit).filter(Boolean)
+                  .sort((a,b)=>(b.hp/b.maxHp)-(a.hp/a.maxHp))[0];
+      if(t) await doAbility(u,{x:t.x,y:t.y,unit:t});
+    } else if(A.id==='smoke'){
+      const exposed=foes.some(f=>hasLOS(f.x,f.y,u.x,u.y));
+      if(exposed && u.hp/u.maxHp<.7) await doAbility(u,tgts[0]);
+    } else if(A.id==='barricade'){
+      if(coverRating(u.x,u.y,foes)<1){
+        const c=objCentre();
+        const pick=tgts.sort((a,b)=>Math.hypot(a.x-c.x,a.y-c.y)-Math.hypot(b.x-c.x,b.y-c.y))[0];
+        if(pick) await doAbility(u,pick);
+      }
+    } else if(A.id==='heal'){
+      const t=tgts.map(t=>t.unit).filter(Boolean).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp)[0];
+      if(t&&t.hp<t.maxHp) await doAbility(u,{x:t.x,y:t.y,unit:t});
+    }
+  }
+}
+async function runAI(){
+  if(G.over) return;
+  G.busy=true;
+  for(const u of livingOf('red')){
+    if(G.over) break;
+    if(!u.alive) continue;
+    G.selected=u; refreshUI();
+    await sleep(280);
+    await aiTakeTurn(u);
+    await sleep(160);
+  }
+  G.selected=null; G.busy=false; refreshUI();
+  if(!G.over) endTurn();
+}
+
+/* ============================== UI =============================== */
+const $=s=>document.querySelector(s);
+const el=(t,c,h)=>{const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e;};
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  $('#screen-'+id).classList.add('on');
+  G.screen=id;
+  window.scrollTo(0,0);
+}
+function log(html,cls){
+  const box=$('#logBox');
+  const line=el('div',cls||'',html);
+  box.insertBefore(line,box.firstChild);
+  while(box.children.length>90) box.removeChild(box.lastChild);
+}
+let bannerTimer=null;
+function banner(txt){
+  const b=$('#banner');
+  b.querySelector('span').textContent=txt;
+  b.classList.add('on');
+  clearTimeout(bannerTimer);
+  bannerTimer=setTimeout(()=>b.classList.remove('on'),1100);
+}
+function selectUnit(u){
+  if(!u||!u.alive) return;
+  G.selected=u; G.aimMode=null;
+  G.reach = (u.team===G.turn && G.phase==='battle' && isHuman(u.team)) ? computeReach(u) : null;
+  refreshUI();
+}
+
+function refreshUI(){
+  if(G.screen!=='battle') return;
+  const you = G.mode==='hotseat' ? (G.turn==='blue'?'Blue Turn':'Red Turn')
+                                 : (G.turn==='blue'?'Your Turn':'Enemy Turn');
+  const tb=$('#turnBadge'); tb.textContent=you; tb.className='turnbadge'+(G.turn==='red'?' enemy':'');
+  $('#roundTxt').textContent='ROUND '+G.round+' / '+G.roundLimit;
+  for(const [box,team,cls] of [[$('#pipsBlue'),'blue','b'],[$('#pipsRed'),'red','r']]){
+    box.innerHTML='';
+    for(let i=0;i<G.holdTarget;i++){
+      const p=el('div','pip'+(i<G.holds[team]?' '+cls:'')); box.appendChild(p);
+    }
+  }
+  $('#endTurnBtn').disabled = G.busy||G.over||G.phase!=='battle'||!isHuman(G.turn);
+  renderUnitPanel(); renderRoster(); renderHint();
+}
+
+function renderUnitPanel(){
+  const p=$('#unitPanel'), u=G.selected;
+  if(!u){ p.innerHTML='<h4>Operative</h4><div style="color:var(--text-dim);font-size:13px">Select one of your operatives.</div>'; return; }
+  const C=CLASSES[u.cls], w=weaponOf(u), A=C.ability;
+  const hpPct=clamp(u.hp/u.maxHp*100,0,100), enPct=clamp(u.energy/u.maxEnergy*100,0,100);
+  const mine = u.team===G.turn && isHuman(u.team) && G.phase==='battle' && !G.busy && u.alive;
+  const canAb = mine && u.energy>=abilityCost(u) && abilityTargets(u).length>0;
+  p.innerHTML=`
+    <h4>Operative</h4>
+    <div class="unit-name" style="color:${C.color}">${u.name}</div>
+    <div class="card-cls">${C.name} &middot; ${w.name}</div>
+    <div class="bars">
+      <div class="bar"><span>HP</span><div class="bar-track"><div class="bar-fill hp ${hpPct<35?'low':''}" style="width:${hpPct}%"></div></div><span>${Math.max(0,u.hp)}</span></div>
+      <div class="bar"><span>EN</span><div class="bar-track"><div class="bar-fill en" style="width:${enPct}%"></div></div><span>${u.energy}</span></div>
+    </div>
+    <div class="trait"><b>${TRAITS[u.trait]?TRAITS[u.trait].name:'—'}:</b> ${TRAITS[u.trait]?TRAITS[u.trait].desc:''}</div>
+    <div class="stat-row"><span>Move <b>2/tile</b></span><span>Shoot <b>${w.cost}</b></span><span>Rng <b>${w.max}</b></span></div>
+    <div class="acts">
+      <button class="btn sm act ${G.aimMode==='ability'?'on':''}" id="abBtn" ${canAb?'':'disabled'}>
+        <span>${A.name}</span><span class="cost">${abilityCost(u)} EN</span></button>
+    </div>
+    <div class="trait" style="border:0;padding-top:6px">${A.desc}</div>
+    <div class="trait" style="border-top:1px dashed var(--line)">
+      Banking <b>${u.energy}</b> energy — ${u.energy>=w.cost?'<span style="color:var(--yellow)">ready to return fire</span>':'not enough to return fire'}.
+    </div>`;
+  const ab=$('#abBtn');
+  if(ab) ab.onclick=()=>{ G.aimMode = G.aimMode==='ability'?null:'ability'; sfx('ui'); refreshUI(); };
+}
+
+function renderRoster(){
+  const box=$('#rosterBox'); box.innerHTML='';
+  const teams = G.mode==='hotseat' ? ['blue','red'] : ['blue'];
+  for(const team of teams){
+    for(const u of G.units.filter(x=>x.team===team)){
+      const row=el('div','rrow'+(G.selected===u?' sel':'')+(u.alive?'':' dead'));
+      const hp=clamp(u.hp/u.maxHp*100,0,100);
+      row.innerHTML=`<span class="dot" style="background:${CLASSES[u.cls].color}"></span>
+        <span style="flex:0 0 82px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.name}</span>
+        <span class="hpmini"><i style="width:${hp}%;background:${hp>50?'#7fc45a':hp>25?'#f2c14e':'#e8563f'}"></i></span>
+        <span class="en">${u.alive?u.energy:'—'}</span>`;
+      if(u.alive) row.onclick=()=>{ selectUnit(u); sfx('ui'); };
+      box.appendChild(row);
+    }
+  }
+}
+
+function renderHint(){
+  const h=$('#hint');
+  if(G.over){ h.textContent=''; return; }
+  if(G.phase==='deploy'){
+    const nxt=G.deployQueue[0];
+    h.innerHTML = nxt ? `Deploying <b>${nxt.name}</b> (${CLASSES[nxt.cls].name}) — tap a highlighted tile.` : 'Ready.';
+    return;
+  }
+  if(!isHuman(G.turn)){ h.textContent='Enemy is thinking…'; return; }
+  if(G.aimMode==='ability'){ h.innerHTML='<b>Choose a target</b> for the ability, or press the button again to cancel.'; return; }
+  const u=G.selected;
+  h.innerHTML = u ? 'Tap a blue tile to move · tap a marked enemy to shoot · unspent energy becomes return fire.'
+                  : 'Tap one of your operatives to select.';
+}
+
+/* --------------------------- canvas input --------------------------- */
+function tileFromEvent(e){
+  const r=cv.getBoundingClientRect();
+  const cxp=(e.clientX-r.left)/r.width*cv.width;
+  const cyp=(e.clientY-r.top)/r.height*cv.height;
+  return { x:Math.floor(cxp/TILE), y:Math.floor(cyp/TILE), sx:cxp, sy:cyp };
+}
+cv.addEventListener('mousemove',e=>{
+  const t=tileFromEvent(e);
+  G.hover = inBounds(t.x,t.y)?{x:t.x,y:t.y}:null;
+  updateTip(t,e);
+});
+cv.addEventListener('mouseleave',()=>{ G.hover=null; $('#tip').style.display='none'; });
+
+function updateTip(t,e){
+  const tip=$('#tip');
+  const u=G.selected;
+  if(!u||G.busy||G.phase!=='battle'||!inBounds(t.x,t.y)){ tip.style.display='none'; return; }
+  const target=unitAt(t.x,t.y);
+  if(target&&target.team!==u.team&&u.team===G.turn&&canTarget(u,target)&&u.energy>=weaponOf(u).cost){
+    const i=shotInfo(u,target);
+    const covTxt=i.cover===2?'<span class="g">Full cover</span>':i.cover===1?'<span class="y">Half cover</span>':'<span class="r">Flanked</span>';
+    const cls=i.chance>=70?'g':i.chance>=40?'y':'r';
+    tip.innerHTML=`<span class="big ${cls}">${i.chance}%</span>${target.name} · ${covTxt}<br>Damage ${i.dmgLo}–${i.dmgHi} · ${i.dist.toFixed(1)} tiles`;
+  } else if(target){
+    tip.innerHTML=`<span class="big">${target.name}</span>${CLASSES[target.cls].name} · ${WEAPONS[target.weapon].name}<br>HP ${Math.max(0,target.hp)}/${target.maxHp} · EN ${target.energy}`;
+  } else if(G.reach&&G.reach.get(key(t.x,t.y))&&G.reach.get(key(t.x,t.y)).land){
+    const r=G.reach.get(key(t.x,t.y));
+    const left=u.energy-r.cost, w=weaponOf(u);
+    tip.innerHTML=`<span class="big">${r.cost} EN</span>${left} left${left>=w.cost?' · can still shoot':' · no shot left'}`;
+  } else { tip.style.display='none'; return; }
+  tip.style.display='block';
+  const wrap=$('#canvasWrap').getBoundingClientRect();
+  tip.style.left=Math.min(wrap.width-tip.offsetWidth-6, Math.max(4,e.clientX-wrap.left+14))+'px';
+  tip.style.top=Math.max(4,e.clientY-wrap.top-14)+'px';
+}
+
+cv.addEventListener('click',async e=>{
+  if(G.busy||G.over) return;
+  const t=tileFromEvent(e);
+  if(!inBounds(t.x,t.y)) return;
+
+  if(G.phase==='deploy'){ await handleDeployClick(t.x,t.y); return; }
+  if(!isHuman(G.turn)) return;
+
+  const clicked=unitAt(t.x,t.y);
+  const u=G.selected;
+
+  if(G.aimMode==='ability'&&u){
+    const ok=abilityTargets(u).find(a=>a.x===t.x&&a.y===t.y);
+    if(ok){ await doAbility(u,ok); return; }
+    G.aimMode=null; refreshUI(); return;
+  }
+  if(clicked&&clicked.team===G.turn){ selectUnit(clicked); sfx('ui'); return; }
+  if(!u) return;
+  if(clicked&&clicked.team!==u.team){
+    if(canTarget(u,clicked)&&u.energy>=weaponOf(u).cost){
+      G.busy=true; G.reach=null; refreshUI();
+      await doShoot(u,clicked,false);
+      G.busy=false;
+      if(u.alive) selectUnit(u); else refreshUI();
+      checkWin();
+    }
+    return;
+  }
+  const dest=G.reach&&G.reach.get(key(t.x,t.y));
+  if(dest&&dest.land){
+    const path=pathTo(G.reach,u,t.x,t.y);
+    if(path&&path.length) await doMove(u,path);
+  }
+});
+
+/* =========================== DEPLOYMENT =========================== */
+function placeUnit(u,x,y){ u.x=x; u.y=y; u.px=cx(x); u.py=cy(y); u.placed=true; }
+async function handleDeployClick(x,y){
+  const tiles=spawnTiles(G.deployTeam);
+  if(!tiles.some(t=>t.x===x&&t.y===y)||unitAt(x,y)) return;
+  const u=G.deployQueue.shift();
+  if(!u) return;
+  placeUnit(u,x,y); sfx('ui');
+  if(!G.deployQueue.length){
+    if(G.mode==='hotseat'&&G.deployTeam==='blue'){
+      G.deployTeam='red';
+      G.deployQueue=G.units.filter(v=>v.team==='red');
+      banner('RED — DEPLOY');
+    }else{
+      G.phase='battle';
+      log('<span class="sys">Contact. Squads deployed.</span>');
+      beginTurn('blue');
+      return;
+    }
+  }
+  refreshUI();
+}
+function autoDeploy(team){
+  const tiles=spawnTiles(team).slice();
+  const c=objCentre();
+  tiles.sort((a,b)=>Math.hypot(a.x-c.x,a.y-c.y)-Math.hypot(b.x-c.x,b.y-c.y));
+  const chosen=[];
+  for(const t of tiles){
+    if(unitAt(t.x,t.y)) continue;
+    if(chosen.some(p=>Math.abs(p.x-t.x)+Math.abs(p.y-t.y)<2)) continue;
+    chosen.push(t);
+  }
+  const pool = chosen.length>=G.units.filter(u=>u.team===team).length ? chosen : tiles;
+  let i=0;
+  for(const u of G.units.filter(u=>u.team===team)){
+    const t=pool[i++%pool.length] || tiles[i%tiles.length];
+    placeUnit(u,t.x,t.y);
+  }
+}
+
+/* ========================== BATTLE SETUP ========================== */
+function traitForClass(cls){
+  const m={commando:['steady','brawler'],medic:['medkit','tough'],engineer:['sapper','vigilant'],
+           captain:['inspire','marksman'],agent:['ghost','fleet']}[cls];
+  return m[irnd(0,m.length-1)];
+}
+function randomEnemySquad(budget){
+  const out=[]; let left=budget, guard=0;
+  const clsList=Object.keys(CLASSES);
+  const wList=Object.keys(WEAPONS);
+  while(left>=4 && out.length<5 && guard++<60){
+    const affordable=wList.filter(w=>WEAPONS[w].pts<=left);
+    if(!affordable.length) break;
+    const w=affordable[irnd(0,affordable.length-1)];
+    const cls=clsList[irnd(0,clsList.length-1)];
+    out.push({cls,w}); left-=WEAPONS[w].pts;
+  }
+  return out.length?out:[{cls:'commando',w:'rifle'}];
+}
+function startBattle(cfg){
+  G.mission=cfg.mission||null;
+  G.holdTarget=cfg.hold||5;
+  G.roundLimit=cfg.rounds||16;
+  G.holds={blue:0,red:0};
+  G.round=1; G.over=false; G.busy=false; G.selected=null; G.reach=null;
+  G.aimMode=null; G.fx=[]; G.units=[]; uid=1;
+  G.stats={kills:0,losses:0,shots:0,hits:0};
+  loadMap(cfg.map);
+  $('#logBox').innerHTML='';
+
+  for(const s of cfg.squad){
+    const r=ROSTER.find(x=>x.id===s.rosterId);
+    G.units.push(makeUnit('blue',r.cls,s.weapon,r.name,r.trait));
+  }
+  const usedNames=[];
+  for(const e of cfg.enemy){
+    let n; do{ n=ENEMY_NAMES[irnd(0,ENEMY_NAMES.length-1)]; }while(usedNames.includes(n)&&usedNames.length<ENEMY_NAMES.length);
+    usedNames.push(n);
+    G.units.push(makeUnit('red',e.cls,e.w,n,traitForClass(e.cls)));
+  }
+  if(G.mode!=='hotseat') autoDeploy('red');
+
+  G.phase='deploy'; G.deployTeam='blue';
+  G.deployQueue=G.units.filter(u=>u.team==='blue');
+  show('battle');
+  banner('DEPLOY YOUR SQUAD');
+  log('<span class="sys">'+cfg.map.name+' — hold the objective '+G.holdTarget+' rounds, or wipe them out.</span>');
+  refreshUI();
+  G.lastCfg=cfg;
+}
+
+function finish(winner,reason){
+  if(G.over) return;
+  G.over=true; G.phase='over'; G.busy=false;
+  const won = G.mode==='hotseat' ? null : winner==='blue';
+  sfx(winner==='blue'?'win':'lose');
+  const title=$('#resultTitle');
+  if(G.mode==='hotseat'){
+    title.textContent = winner==='draw' ? 'Draw' : (winner==='blue'?'Blue Wins':'Red Wins');
+    title.className='result-title '+(winner==='draw'?'':'win');
+  }else{
+    title.textContent = winner==='draw' ? 'Stalemate' : won ? 'Victory' : 'Defeat';
+    title.className='result-title '+(won?'win':winner==='draw'?'':'lose');
+  }
+  $('#resultSub').textContent=reason;
+  const acc=G.stats.shots?Math.round(G.stats.hits/G.stats.shots*100):0;
+  $('#resultStats').innerHTML=`
+    <div class="rs"><b>${G.stats.kills}</b><span>Kills</span></div>
+    <div class="rs"><b>${G.stats.losses}</b><span>Losses</span></div>
+    <div class="rs"><b>${acc}%</b><span>Accuracy</span></div>
+    <div class="rs"><b>${G.round}</b><span>Rounds</span></div>
+    <div class="rs"><b>${G.holds.blue}–${G.holds.red}</b><span>Objective</span></div>`;
+  if(G.mode==='campaign'&&winner==='blue'&&G.mission){
+    const done=loadProgress();
+    if(G.mission.id>done){ saveProgress(G.mission.id); }
+  }
+  setTimeout(()=>show('result'),900);
+}
+
+/* =========================== PERSISTENCE =========================== */
+const PKEY='radsquad_progress';
+function loadProgress(){ try{ return parseInt(localStorage.getItem(PKEY)||'0',10)||0; }catch(e){ return 0; } }
+function saveProgress(n){ try{ localStorage.setItem(PKEY,String(n)); }catch(e){} }
+
+/* =========================== SQUAD BUILDER ========================= */
+function paintPortrait(c,cls,team){
+  const g=c.getContext('2d'), C=CLASSES[cls];
+  const tc = team==='red' ? '#c4483a' : '#3f7fc4';
+  g.clearRect(0,0,c.width,c.height);
+  g.fillStyle='#1c1815'; g.fillRect(0,0,c.width,c.height);
+  g.save(); g.translate(c.width/2,c.height/2+6);
+  g.fillStyle=tc; g.strokeStyle='#14110f'; g.lineWidth=2;
+  roundRect(g,-13,-2,26,20,7); g.fill(); g.stroke();
+  g.fillStyle=C.color; g.fillRect(-13,8,26,6);
+  g.beginPath(); g.arc(0,-9,9,0,7); g.fillStyle='#e8b58a'; g.fill(); g.stroke();
+  g.fillStyle=C.color;
+  if(cls==='medic'){ roundRect(g,-10,-19,20,8,3); g.fill(); g.stroke();
+    g.fillStyle='#fff'; g.fillRect(-1.5,-18,3,6); g.fillRect(-4,-15.5,9,3); }
+  else if(cls==='captain'){ roundRect(g,-10,-19,20,7,2); g.fill(); g.stroke();
+    g.fillStyle='#f2c14e'; g.fillRect(-3,-23,6,4); }
+  else if(cls==='engineer'){ roundRect(g,-11,-20,22,9,4); g.fill(); g.stroke(); }
+  else if(cls==='agent'){ roundRect(g,-10,-18,20,6,3); g.fill(); g.stroke();
+    g.fillStyle='#14110f'; g.fillRect(-9,-13,18,4); }
+  else { roundRect(g,-10,-19,20,9,4); g.fill(); g.stroke(); }
+  g.restore();
+}
+function squadPoints(){ return G.squad.reduce((s,m)=>s+WEAPONS[m.weapon].pts,0); }
+function buildRecruitGrid(){
+  const grid=$('#recruitGrid'); grid.innerHTML='';
+  for(const r of ROSTER){
+    const picked=G.squad.find(s=>s.rosterId===r.id);
+    const C=CLASSES[r.cls];
+    const card=el('div','card'+(picked?' picked':''));
+    const wep = picked?picked.weapon:r.fav;
+    card.innerHTML=`
+      <span class="pts">${WEAPONS[wep].pts} PT</span>
+      <div class="card-head">
+        <canvas class="portrait" width="46" height="46"></canvas>
+        <div><div class="card-name">${r.name}</div><div class="card-cls" style="color:${C.color}">${C.name}</div></div>
+      </div>
+      <div class="stat-row"><span>HP <b>${C.hp+(r.trait==='tough'?15:0)}</b></span>
+        <span>EN <b>${C.energy+(r.trait==='fleet'?3:0)}</b></span>
+        <span>Aim <b>${C.aim>=0?'+':''}${C.aim}</b></span></div>
+      <select class="wsel">${Object.entries(WEAPONS).map(([k,w])=>
+        `<option value="${k}" ${k===wep?'selected':''}>${w.name} — ${w.pts} pt</option>`).join('')}</select>
+      <div class="trait"><b>${TRAITS[r.trait].name}:</b> ${TRAITS[r.trait].desc}</div>
+      <button class="btn sm recruit-btn ${picked?'primary':''}" style="width:100%;margin-top:10px">${picked?'In Squad ✓':'Recruit'}</button>`;
+    paintPortrait(card.querySelector('canvas'),r.cls,'blue');
+    const sel=card.querySelector('select');
+    sel.onclick=e=>e.stopPropagation();
+    sel.onchange=e=>{
+      const m=G.squad.find(s=>s.rosterId===r.id);
+      if(m) m.weapon=e.target.value;
+      else r.fav=e.target.value;
+      buildRecruitGrid(); updateSquadBar();
+    };
+    const toggle=()=>{
+      const i=G.squad.findIndex(s=>s.rosterId===r.id);
+      if(i>=0) G.squad.splice(i,1);
+      else{
+        if(G.squad.length>=5) return;
+        G.squad.push({rosterId:r.id,weapon:sel.value});
+      }
+      sfx('ui'); buildRecruitGrid(); updateSquadBar();
+    };
+    card.onclick=toggle;
+    card.querySelector('.recruit-btn').onclick=e=>{ e.stopPropagation(); toggle(); };
+    grid.appendChild(card);
+  }
+}
+function updateSquadBar(){
+  const pts=squadPoints(), n=G.squad.length, over=pts>G.budget;
+  $('#ptsTxt').textContent=`${pts} / ${G.budget} points`;
+  $('#cntTxt').textContent=`${n} operative${n===1?'':'s'}`;
+  const fill=$('#ptsFill');
+  fill.style.width=clamp(pts/G.budget*100,0,100)+'%';
+  fill.classList.toggle('over',over);
+  $('#deployBtn').disabled = over || n<2 || n>5;
+  document.querySelectorAll('#budgetPick .chip').forEach(c=>
+    c.classList.toggle('on',+c.dataset.budget===G.budget));
+}
+
+/* ============================ MAP SELECT ========================== */
+function paintMapPreview(c,m){
+  const g=c.getContext('2d'), s=c.width/COLS;
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    const ch=m.rows[y][x];
+    g.fillStyle = ch==='#' ? '#4d443a' : ch==='o' ? '#c39a55' : ch==='~' ? '#3a352c'
+                : ch==='*' ? '#f2c14e' : ch==='A' ? '#3f7fc4' : ch==='B' ? '#c4483a' : m.ground;
+    g.fillRect(x*s,y*s,s,s);
+  }
+}
+function buildMapGrid(onPick){
+  const grid=$('#mapGrid'); grid.innerHTML='';
+  for(const m of MAPS){
+    const card=el('div','card');
+    card.innerHTML=`<canvas width="256" height="192" style="width:100%;border-radius:6px;border:2px solid var(--line);image-rendering:pixelated"></canvas>
+      <div class="card-name" style="margin-top:9px">${m.name}</div>
+      <div class="trait" style="border:0;padding-top:5px">${m.blurb}</div>`;
+    paintMapPreview(card.querySelector('canvas'),m);
+    card.onclick=()=>{ sfx('ui'); onPick(m); };
+    grid.appendChild(card);
+  }
+}
+
+/* ============================ CAMPAIGN =========================== */
+function buildMissionList(){
+  const box=$('#missionList'); box.innerHTML='';
+  const done=loadProgress();
+  for(const m of MISSIONS){
+    const locked = m.id > done+1;
+    const cleared = m.id <= done;
+    const row=el('div','mission'+(locked?' locked':'')+(cleared?' done':''));
+    const map=MAPS.find(x=>x.id===m.map);
+    row.innerHTML=`<div class="mnum">${m.id}</div>
+      <div style="flex:1"><h3>${m.name}</h3><p>${m.brief}</p>
+        <p style="color:#8b8175;margin-top:4px">${map.name} · your ${m.budget} pt squad · ${m.enemy.length} hostiles worth ${m.enemy.reduce((s,e)=>s+WEAPONS[e.w].pts,0)} pt · hold ${m.hold}</p></div>
+      <div class="mtag">${cleared?'CLEARED':locked?'LOCKED':'READY'}</div>`;
+    if(!locked) row.onclick=()=>{
+      sfx('ui');
+      G.mode='campaign'; G.mission=m; G.budget=m.budget; G.squad=[];
+      $('#squadTitle').textContent=`Mission ${m.id}: ${m.name} — ${m.budget} pt squad`;
+      $('#budgetPick').style.display='none';
+      buildRecruitGrid(); updateSquadBar(); show('squad');
+    };
+    box.appendChild(row);
+  }
+}
+
+/* ============================== RULES ============================ */
+$('#rulesBody').innerHTML=`
+<h3>The idea</h3>
+<p>Two squads, one objective, one grid. Every operative gets a pool of <b>energy</b> each turn and spends it
+on everything they do. The twist: whatever they <i>don't</i> spend is what they shoot with on the enemy's turn.
+Emptying a soldier is how you win a fight now; leaving them loaded is how you win the next one.</p>
+<h3>Energy</h3>
+<ul>
+  <li>Moving costs <code>2</code> energy per tile, <code>3</code> through rubble.</li>
+  <li>Shooting costs whatever the weapon costs — <code>4</code> for a pistol up to <code>8</code> for a sniper rifle.</li>
+  <li>Abilities cost <code>4–6</code>.</li>
+  <li>Anything left over is a <b>return fire</b> pool. If an enemy moves into your line of sight on their turn,
+      each operative who can still pay for a shot takes one — once per turn, at &minus;15 accuracy
+      and 60% damage. Snap shots punish careless movement; they do not win fights on their own.</li>
+</ul>
+<h3>Cover</h3>
+<ul>
+  <li><span style="color:#7fc45a"><b>Green — full cover</b></span>: a wall between you and the shooter. &minus;40 to their accuracy.</li>
+  <li><span style="color:#f2c14e"><b>Yellow — half cover</b></span>: sandbags or a low wreck. &minus;20 to their accuracy.</li>
+  <li><span style="color:#e8563f"><b>Red — flanked</b></span>: nothing in the way. Full accuracy <b>and 50% extra damage</b>.</li>
+</ul>
+<p>Cover is directional. The bracket colour drawn around an enemy tells you what <i>your</i> shot is facing, so
+walking two tiles sideways is often worth more than a second shot.</p>
+<h3>Winning</h3>
+<ul>
+  <li>Hold the striped objective zone <b>uncontested</b> at the end of a round to score. First to <b>5</b> wins.</li>
+  <li>If both squads have someone in the zone it is contested and nobody scores.</li>
+  <li>Wiping out the enemy squad also wins it. So does leading on objective score when the round limit runs out.</li>
+</ul>
+<h3>Building a squad</h3>
+<p>Squads are bought with points, and an operative costs exactly what their weapon costs — a 14-point squad is
+three cheaply-armed bodies or two well-armed ones. Five classes: <b>Commando</b> (suppress),
+<b>Medic</b> (heal), <b>Engineer</b> (build cover), <b>Captain</b> (hand an ally extra energy),
+<b>Agent</b> (smoke). Every operative also has a trait that bends one rule in their favour.</p>
+<h3>Controls</h3>
+<ul>
+  <li>Tap an operative to select. Blue tiles are where they can reach; the darker blue ones cost so much
+      to reach that they could not shoot afterwards.</li>
+  <li>Tap a bracketed enemy to shoot. Hover first to see the odds, the cover, and the damage band.</li>
+  <li>The ability button targets separately — press it, then pick a target, or press it again to cancel.</li>
+</ul>`;
+
+/* ============================== BOOT ============================= */
+document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{
+  sfx('ui');
+  const go=b.dataset.go;
+  if(go==='title'){ show('title'); return; }
+  if(go==='rules'){ show('rules'); return; }
+  if(go==='campaign'){ buildMissionList(); show('campaign'); return; }
+  if(go==='skirmish'||go==='hotseat'){
+    G.mode=go; G.mission=null; G.squad=[]; G.budget=20;
+    $('#squadTitle').textContent = go==='hotseat' ? 'Pass & Play — Blue squad' : 'Skirmish — build your squad';
+    $('#budgetPick').style.display='';
+    buildRecruitGrid(); updateSquadBar(); show('squad');
+  }
+}));
+document.querySelectorAll('#budgetPick .chip').forEach(c=>c.addEventListener('click',()=>{
+  G.budget=+c.dataset.budget; sfx('ui'); updateSquadBar();
+}));
+$('#squadBack').onclick=()=>show(G.mode==='campaign'?'campaign':'title');
+$('#mapBack').onclick=()=>show('squad');
+$('#wipeProgress').onclick=()=>{ saveProgress(0); buildMissionList(); };
+$('#deployBtn').onclick=()=>{
+  sfx('ui');
+  if(G.mode==='campaign'&&G.mission){
+    const m=G.mission;
+    startBattle({ map:MAPS.find(x=>x.id===m.map), squad:G.squad.slice(),
+                  enemy:m.enemy, hold:m.hold, rounds:m.rounds, mission:m });
+  }else{
+    buildMapGrid(m=>{
+      const enemy = G.mode==='hotseat'
+        ? G.squad.map(s=>({cls:ROSTER.find(r=>r.id===s.rosterId).cls,w:s.weapon}))
+        : randomEnemySquad(G.budget);
+      startBattle({ map:m, squad:G.squad.slice(), enemy, hold:5, rounds:16 });
+    });
+    show('map');
+  }
+};
+$('#endTurnBtn').onclick=()=>{ sfx('ui'); endTurn(); };
+$('#quitBtn').onclick=()=>{ if(!G.over) finish('red','You pulled the squad out.'); };
+$('#muteBtn').onclick=()=>{ G.muted=!G.muted; $('#muteBtn').textContent='Sound: '+(G.muted?'Off':'On'); };
+$('#againBtn').onclick=()=>{
+  sfx('ui');
+  if(G.mode==='campaign'){ buildMissionList(); show('campaign'); }
+  else if(G.lastCfg){
+    const cfg=G.lastCfg;
+    startBattle({ ...cfg, enemy: G.mode==='hotseat'?cfg.enemy:randomEnemySquad(G.budget) });
+  } else show('title');
+};
+window.addEventListener('keydown',e=>{
+  if(G.screen!=='battle') return;
+  if(e.key==='Escape'){ G.aimMode=null; refreshUI(); }
+  if(e.key==='Enter'&&!G.busy&&isHuman(G.turn)&&G.phase==='battle') endTurn();
+  if(e.key==='Tab'){
+    e.preventDefault();
+    const mine=livingOf(G.turn);
+    if(mine.length&&isHuman(G.turn)){
+      const i=mine.indexOf(G.selected);
+      selectUnit(mine[(i+1)%mine.length]);
+    }
+  }
+});
+</script>
+</body>
+</html>
