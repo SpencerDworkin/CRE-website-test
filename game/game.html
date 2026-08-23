@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RAD Soldiers</title>
+<style>
+ *{box-sizing:border-box;margin:0;padding:0}
+ html,body{height:100%;background:#0b0a09;color:#f2ece4;overflow:hidden;
+   font-family:'Barlow',system-ui,-apple-system,sans-serif}
+ #cv{display:block;width:100vw;height:100vh;cursor:pointer}
+ .panel{position:fixed;background:rgba(20,17,15,.88);border:2px solid #4a4038;border-radius:10px;
+   padding:10px 13px;backdrop-filter:blur(3px)}
+ #top{left:50%;transform:translateX(-50%);top:10px;display:flex;gap:14px;align-items:center;
+   font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-size:14px}
+ .pips{display:flex;gap:4px}
+ .pip{width:13px;height:13px;border-radius:3px;border:2px solid #4a4038;background:#1c1815}
+ .pip.b{background:#4aa3e8;border-color:#1f6fae}.pip.r{background:#e8563f;border-color:#a8301e}
+ #unit{left:12px;top:12px;width:250px}
+ #unit h3{font-size:17px;line-height:1.2}
+ .sub{font-size:12px;color:#a99e92;text-transform:uppercase;letter-spacing:.09em;font-weight:700}
+ .bar{display:flex;align-items:center;gap:7px;margin-top:7px;font-size:12px;font-weight:700}
+ .track{flex:1;height:11px;background:#000;border:2px solid #4a4038;border-radius:7px;overflow:hidden}
+ .fill{height:100%}
+ #roster{left:12px;bottom:12px;width:250px;display:flex;flex-direction:column;gap:5px}
+ .r{display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:7px;background:#1c1815;
+   border:2px solid transparent;cursor:pointer;font-size:13px;font-weight:600}
+ .r.sel{border-color:#ffd23f}.r.dead{opacity:.35;text-decoration:line-through;cursor:default}
+ .dot{width:10px;height:10px;border-radius:50%;flex:none}
+ .mini{flex:1;height:6px;background:#000;border-radius:3px;overflow:hidden}
+ .mini i{display:block;height:100%;background:#5fd13d}
+ #log{right:12px;bottom:12px;width:290px;height:150px;overflow-y:auto;font-size:12.5px;
+   line-height:1.5;display:flex;flex-direction:column-reverse;gap:2px;color:#c3b9ac}
+ #log b{color:#f2ece4}.hit{color:#5fd13d}.miss{color:#ff6b52}.sys{color:#ffd23f}
+ #tip{right:12px;top:12px;width:290px}
+ button{font-family:inherit;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+   background:#352e28;color:#f2ece4;border:2px solid #4a4038;border-bottom-width:4px;
+   border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px}
+ button.go{background:#ffd23f;color:#20160d;border-color:#a8842a}
+ button:disabled{opacity:.4;cursor:not-allowed}
+ #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+   background:#0b0a09;font-size:15px;color:#a99e92;z-index:50}
+ #brief{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:40;
+   background:rgba(8,7,6,.82);backdrop-filter:blur(4px)}
+ #brief .card{width:min(560px,92vw);background:rgba(20,17,15,.97);border:2px solid #4a4038;
+   border-radius:14px;padding:22px 26px}
+ #brief h1{font-size:30px;letter-spacing:.02em;line-height:1.1;color:#ffd23f}
+ #brief h2{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#a99e92;margin:4px 0 16px}
+ #brief p{font-size:14px;line-height:1.6;color:#c3b9ac;margin-bottom:11px}
+ #brief b{color:#f2ece4}
+ #brief dl{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13px;
+   color:#c3b9ac;margin:14px 0 18px}
+ #brief dt{font-weight:700;color:#f2ece4;white-space:nowrap}
+ #over{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:35;display:none;
+   text-align:center;padding:20px 34px}
+ #over h1{font-size:26px;color:#ffd23f;margin-bottom:14px}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="boot">loading the level…</div>
+<div class="panel" id="top" style="display:none">
+  <span id="turn">Your turn</span><span id="round">Round 1</span>
+  <span>Hold</span><span class="pips" id="pb"></span><span>vs</span><span class="pips" id="pr"></span>
+  <button id="end" class="go">End turn</button>
+</div>
+<div class="panel" id="unit" style="display:none"></div>
+<div class="panel" id="roster" style="display:none"></div>
+<div class="panel" id="log" style="display:none"></div>
+<div class="panel" id="tip" style="display:none"></div>
+<div id="over" class="panel"><h1 id="overmsg"></h1><button id="again" class="go">Rematch</button></div>
+<div id="brief"><div class="card">
+  <h1>RAD Soldiers</h1>
+  <h2 id="briefmap">Skirmish</h2>
+  <p>Take the ground around the memorial and <b>hold it for three rounds</b> — or put
+     the other squad down. Sixteen rounds, then it goes on objective score.</p>
+  <p><b>AP you don't spend is AP you keep.</b> Anyone left with enough for a shot will
+     fire on an enemy that moves across their line of fire. Walking a squaddie
+     through open ground in front of four held rifles is how you lose them.</p>
+  <p>Cover is read off the <b>edge a shot crosses</b>, so the side you shoot from
+     decides what it's worth. Catch someone with no cover facing you and it's a
+     <b>flank</b> — half again the damage.</p>
+  <dl>
+    <dt>Click an operative</dt><dd>select</dd>
+    <dt>Click a blue tile</dt><dd>move there</dd>
+    <dt>Hover an enemy</dt><dd>hit chance, damage, cover</dd>
+    <dt>Click an enemy</dt><dd>fire</dd>
+    <dt>A / D or ← →</dt><dd>rotate the camera</dd>
+    <dt>+ / −</dt><dd>zoom</dd>
+    <dt>Drag</dt><dd>pan</dd>
+    <dt>Enter</dt><dd>end turn</dd>
+  </dl>
+  <button id="deployBtn" class="go">Deploy</button>
+</div></div>
+
+<script type="module">
+import * as THREE from './three.module.js';
+import { buildGrid, DIRS, dirIx } from './grid.js';
+
+const boot = document.getElementById('boot');
+const say = t => boot.textContent = t;
+window.__err = null; window.__ready = false;
+
+try {
+/* ───────────────────────── data ───────────────────────── */
+const L = await (await fetch('./play.json')).json();
+const U = await (await fetch('./units.json')).json();
+say('building the board…');
+
+if (!L.tiles) Object.assign(L, buildGrid(L));    // measure the board off the level art
+const W = L.grid[0], H = L.grid[1];
+const COVER_ACC = { 0: 0, 1: -20, 2: -35, 3: -55 };
+const SIGHT = 2;                                 // this cover level and up blocks line of sight
+
+const tileAt = new Map();                        // "x,y" -> tile
+for (const t of L.tiles) tileAt.set(t.x + ',' + t.y, t);
+const T = (x, y) => tileAt.get(x + ',' + y) || null;
+const inArena = (x, y) => { const t = T(x, y); return !!t && t.a === 1; };
+const edgeC = (x, y, dx, dy) => { const t = T(x, y); return t ? t.c[dirIx(dx, dy)] : 3; };
+function canStep(x, y, i) {
+  const t = T(x, y);
+  if (!t || !(t.p & (1 << i))) return false;
+  return inArena(x + DIRS[i][0], y + DIRS[i][1]);
+}
+
+const CLASSES = {
+  commando: { name:'Commando', hp:250, ap:10, aim:5,  col:0xe8563f },
+  medic:    { name:'Medic',    hp:200, ap:10, aim:0,  col:0x7fc45a },
+  engineer: { name:'Engineer', hp:300, ap:8,  aim:0,  col:0xf2c14e },
+  captain:  { name:'Captain',  hp:300, ap:10, aim:8,  col:0x4aa3e8 },
+  agent:    { name:'Agent',    hp:187, ap:12, aim:10, col:0xa879d8 },
+  heavy:    { name:'Heavy',    hp:500, ap:8,  aim:-3, col:0xd98a35 },
+};
+/* Tuned so an operative survives two or three turns of attention. At the
+   damage the first pass used, every match was over by round six with both
+   squads dead on the ground and the objective never contested. */
+const WEAPONS = {
+  rifle:   { name:'Assault Rifle', dmg:[35,47], acc:75, opt:6, max:10, ap:4, fall:5 },
+  smg:     { name:'MP5K',          dmg:[26,36], acc:74, opt:4, max:7,  ap:3, fall:9 },
+  shotgun: { name:'Shotgun',       dmg:[47,64], acc:84, opt:2, max:5,  ap:4, fall:17 },
+  sniper:  { name:'Sniper Rifle',  dmg:[62,84], acc:71, opt:10,max:16, ap:6, fall:3, minPen:true },
+  lmg:     { name:'LMG',           dmg:[42,56], acc:66, opt:6, max:10, ap:5, fall:4 },
+};
+
+/* ── derive objective + spawns from the geometry ── */
+const arena = L.tiles.filter(t => t.a === 1);
+const ax = arena.reduce((a, t) => a + t.x, 0) / arena.length;
+const ay = arena.reduce((a, t) => a + t.y, 0) / arena.length;
+const objective = [...arena].sort((p, q) =>
+  Math.hypot(p.x - ax, p.y - ay) - Math.hypot(q.x - ax, q.y - ay)).slice(0, 9);
+const objKey = new Set(objective.map(t => t.x + ',' + t.y));
+
+/* Spawns are matched on walking distance to the objective, not on straight-line
+   distance: the garden is a hedge maze and one flank has a much clearer run
+   than the other, which handed the side that starts there the whole match. */
+const objDist = new Map();
+{
+  const q = objective.map(t => (objDist.set(t.x + ',' + t.y, 0), t));
+  for (let i = 0; i < q.length; i++) {
+    const cur = q[i], d = objDist.get(cur.x + ',' + cur.y);
+    for (let k = 0; k < 4; k++) {
+      if (!canStep(cur.x, cur.y, k)) continue;
+      const n = T(cur.x + DIRS[k][0], cur.y + DIRS[k][1]);
+      if (!n || objDist.has(n.x + ',' + n.y)) continue;
+      objDist.set(n.x + ',' + n.y, d + 1); q.push(n);
+    }
+  }
+}
+const reachable = arena.filter(t => objDist.has(t.x + ',' + t.y));
+const walk = t => objDist.get(t.x + ',' + t.y);
+const far = [...reachable].sort((p, q) => walk(q) - walk(p));
+const START = walk(far[Math.floor(far.length * 0.08)]);        // a long but not silly march
+
+function spawnSide(pool) {                                     // four, spread out, all the same march
+  const out = [];
+  for (const t of [...pool].sort((p, q) => Math.abs(walk(p) - START) - Math.abs(walk(q) - START))) {
+    if (out.every(o => Math.hypot(o.x - t.x, o.y - t.y) >= 2)) out.push(t);
+    if (out.length === 4) break;
+  }
+  return out;
+}
+const spawnA = spawnSide(reachable.filter(t => t.x < ax));
+const spawnB = spawnSide(reachable.filter(t => t.x > ax));
+
+/* ───────────────────────── engine ───────────────────────── */
+const G = { units: [], sel: null, turn: 'blue', round: 1, holds: { blue: 0, red: 0 },
+            target: 3, limit: 16, busy: false, over: false, reach: null };
+
+let uid = 1;
+function makeUnit(team, cls, model, weap, name) {
+  const C = CLASSES[cls];
+  return { id: uid++, team, cls, model, weap, name, hp: C.hp, maxHp: C.hp,
+           ap: C.ap, maxAp: C.ap, x: 0, y: 0, alive: true, moved: false, reacted: 0,
+           face: 0, obj: null };
+}
+const living = t => G.units.filter(u => u.alive && u.team === t);
+const foesOf = u => G.units.filter(e => e.alive && e.team !== u.team);
+const unitAt = (x, y) => G.units.find(u => u.alive && u.x === x && u.y === y) || null;
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+function hasLOS(ax, ay, bx, by) {
+  let x = ax, y = ay;
+  const dx = Math.abs(bx - ax), dy = Math.abs(by - ay);
+  const sx = ax < bx ? 1 : -1, sy = ay < by ? 1 : -1;
+  let err = dx - dy, guard = 0;
+  const stop = (nx, ny) => nx === bx && ny === by;
+  while (guard++ < 400) {
+    if (x === bx && y === by) return true;
+    const e2 = 2 * err;
+    let mx = 0, my = 0;
+    if (e2 > -dy) { err -= dy; mx = sx; }
+    if (e2 < dx) { err += dx; my = sy; }
+    if (mx) {
+      if (edgeC(x, y, mx, 0) >= SIGHT && !stop(x + mx, y)) return false;
+      x += mx;
+    }
+    if (my) {
+      if (edgeC(x, y, 0, my) >= SIGHT && !stop(x, y + my)) return false;
+      y += my;
+    }
+  }
+  return false;
+}
+// cover is read off the edges of the target's tile that face the shooter
+function coverOf(tx, ty, fx, fy) {
+  const t = T(tx, ty);
+  if (!t) return 0;
+  const dx = Math.sign(fx - tx), dy = Math.sign(fy - ty);
+  let best = 0;
+  if (dx) best = Math.max(best, t.c[dirIx(dx, 0)]);
+  if (dy) best = Math.max(best, t.c[dirIx(0, dy)]);
+  return best;
+}
+function shotInfo(sh, tg) {
+  const w = WEAPONS[sh.weap], d = dist(sh, tg), cov = coverOf(tg.x, tg.y, sh.x, sh.y);
+  let acc = w.acc + CLASSES[sh.cls].aim - Math.max(0, d - w.opt) * w.fall + (COVER_ACC[cov] || 0);
+  if (w.minPen && d < 3) acc -= 22;
+  const mul = cov === 0 ? 1.5 : 1;
+  return { chance: Math.max(5, Math.min(95, Math.round(acc))), cov, d,
+           lo: Math.round(w.dmg[0] * mul), hi: Math.round(w.dmg[1] * mul) };
+}
+const canFire = u => u.ap >= WEAPONS[u.weap].ap;
+function canTarget(sh, tg) {
+  if (!tg.alive || tg.team === sh.team) return false;
+  if (dist(sh, tg) > WEAPONS[sh.weap].max) return false;
+  return hasLOS(sh.x, sh.y, tg.x, tg.y);
+}
+function reach(u) {
+  const seen = new Map(); const k = (x, y) => x + ',' + y;
+  seen.set(k(u.x, u.y), { cost: 0, prev: null, x: u.x, y: u.y });
+  const q = [{ x: u.x, y: u.y, c: 0 }];
+  while (q.length) {
+    q.sort((a, b) => a.c - b.c);
+    const cur = q.shift();
+    if (seen.get(k(cur.x, cur.y)).cost < cur.c) continue;
+    for (let i = 0; i < 4; i++) {
+      if (!canStep(cur.x, cur.y, i)) continue;
+      const nx = cur.x + DIRS[i][0], ny = cur.y + DIRS[i][1];
+      const occ = unitAt(nx, ny);
+      if (occ && occ.team !== u.team) continue;      // you can slip past your own squad
+      const nc = cur.c + 1;
+      if (nc > u.ap) continue;
+      const old = seen.get(k(nx, ny));
+      if (!old || nc < old.cost) {
+        seen.set(k(nx, ny), { cost: nc, prev: k(cur.x, cur.y), x: nx, y: ny });
+        q.push({ x: nx, y: ny, c: nc });
+      }
+    }
+  }
+  seen.delete(k(u.x, u.y));
+  for (const [kk, v] of [...seen]) if (unitAt(v.x, v.y)) seen.delete(kk);
+  return seen;
+}
+function pathTo(rc, u, tx, ty) {
+  const out = []; let k = tx + ',' + ty; const start = u.x + ',' + u.y;
+  while (k && k !== start) { const r = rc.get(k); if (!r) return null; out.unshift(r); k = r.prev; }
+  return out;
+}
+
+/* ───────────────────────── scene ───────────────────────── */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9fc7e8);
+const loader = new THREE.TextureLoader();
+const mkTex = (n, flip) => { const t = loader.load('./tex/' + n); t.colorSpace = THREE.SRGBColorSpace;
+  t.flipY = !!flip; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
+
+const lvlTex = L.textures.map(n => mkTex(n, false));
+const OOBTEX = L.textures.indexOf('T_OOB_FADE_02_d.png');
+const lvlMats = lvlTex.map((t, i) => i === OOBTEX
+  ? new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, side: THREE.DoubleSide })
+  : new THREE.MeshBasicMaterial({ map: t, alphaTest: .35, side: THREE.DoubleSide }));
+const lvlFallback = new THREE.MeshBasicMaterial({ color: 0xb9b2a2 });
+const art = new THREE.Group();
+for (const n of L.nodes) {
+  const m = L.meshes[n.mesh];
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(m.pos, 3));
+  if (m.uv?.length) g.setAttribute('uv', new THREE.Float32BufferAttribute(m.uv, 2));
+  g.setIndex(m.idx); g.computeVertexNormals();
+  const mesh = new THREE.Mesh(g, n.tex >= 0 ? lvlMats[n.tex] : lvlFallback);
+  mesh.position.set(...n.p); mesh.quaternion.set(...n.q); mesh.scale.set(...n.s);
+  art.add(mesh);
+}
+scene.add(art);
+
+const unitTex = U.textures.map(n => mkTex(n, true));   // the character atlases are stored the other way up
+const unitGeo = {}, unitMat = {};
+for (const [cls, d] of Object.entries(U.units)) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(d.pos, 3));
+  if (d.uv?.length) g.setAttribute('uv', new THREE.Float32BufferAttribute(d.uv, 2));
+  g.setIndex(d.idx);
+  g.rotateX(-Math.PI / 2);                       // the rigs are authored Z-up
+  g.computeBoundingBox();
+  const bb = g.boundingBox;
+  g.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+  // size on the body, not the bounding box - some rigs carry an aerial or a
+  // raised weapon that would otherwise shrink the operative
+  const ys = []; const pa = g.attributes.position.array;
+  for (let i = 1; i < pa.length; i += 3) ys.push(pa[i]);
+  ys.sort((a, b) => a - b);
+  const body = ys[Math.floor(0.95 * (ys.length - 1))] || (bb.max.y - bb.min.y);
+  const s = 1.5 / Math.max(0.01, body);
+  g.scale(s, s, s);
+  g.computeVertexNormals();
+  unitGeo[cls] = g;
+  unitMat[cls] = new THREE.MeshBasicMaterial({ map: d.tex >= 0 ? unitTex[d.tex] : null,
+                                               color: d.tex >= 0 ? 0xffffff : 0xcccccc,
+                                               side: THREE.DoubleSide });
+}
+
+const world = t => new THREE.Vector3(t.w[0], t.w[1], t.w[2]);
+const tileWorld = (x, y) => { const t = T(x, y); return t ? world(t) : new THREE.Vector3(); };
+
+/* pickable ground + overlays */
+const pickGeo = new THREE.PlaneGeometry(0.96, 0.96).rotateX(-Math.PI/2);
+const pickMat = new THREE.MeshBasicMaterial({ visible: false });
+const picks = new THREE.Group();
+for (const t of L.tiles) {
+  if (t.a !== 1) continue;
+  const q = new THREE.Mesh(pickGeo, pickMat);
+  q.position.copy(world(t)).add(new THREE.Vector3(0, 0.05, 0));
+  q.userData.t = t; picks.add(q);
+}
+scene.add(picks);
+
+const overlayMat = {
+  move: new THREE.MeshBasicMaterial({ color: 0x63c2ff, transparent: true, opacity: .34, depthWrite: false }),
+  obj:  new THREE.MeshBasicMaterial({ color: 0xffc632, transparent: true, opacity: .40, depthWrite: false }),
+};
+const objGroup = new THREE.Group();
+for (const t of objective) {
+  const q = new THREE.Mesh(pickGeo, overlayMat.obj);
+  q.position.copy(world(t)).add(new THREE.Vector3(0, 0.07, 0));
+  objGroup.add(q);
+}
+scene.add(objGroup);
+const moveGroup = new THREE.Group(); scene.add(moveGroup);
+
+const ringGeo = new THREE.RingGeometry(0.42, 0.52, 24).rotateX(-Math.PI/2);
+const unitGroup = new THREE.Group(); scene.add(unitGroup);
+
+function spawnMesh(u) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(unitGeo[u.model], unitMat[u.model]);
+  g.add(body);
+  const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+    color: u.team === 'blue' ? 0x3d8fd6 : 0xe2543c, transparent: true, opacity: .95, depthWrite: false }));
+  ring.position.y = 0.06; g.add(ring);
+  const sel = new THREE.Mesh(new THREE.RingGeometry(0.56, 0.66, 24).rotateX(-Math.PI/2),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .95, depthWrite: false }));
+  sel.position.y = 0.07; sel.visible = false; g.add(sel);
+  g.userData = { u, sel, ring };
+  unitGroup.add(g); u.obj = g;
+  placeMesh(u);
+}
+function placeMesh(u) {
+  const p = tileWorld(u.x, u.y);
+  u.obj.position.set(p.x, p.y, p.z);
+  const foe = foesOf(u).sort((a, b) => dist(u, a) - dist(u, b))[0];
+  const look = foe || objective[0];
+  const dx = (look.x ?? look.gx) - u.x, dy = (look.y ?? look.gy) - u.y;
+  if (dx || dy) u.obj.rotation.y = Math.atan2(dx, dy) + Math.PI;
+}
+
+/* camera - framed on the arena, not on the backdrop buildings */
+const aBox = new THREE.Box3();
+for (const t of arena) aBox.expandByPoint(new THREE.Vector3(t.w[0], t.w[1], t.w[2]));
+aBox.expandByVector(new THREE.Vector3(1.5, 3, 1.5));
+const size = aBox.getSize(new THREE.Vector3());
+const mid = aBox.getCenter(new THREE.Vector3());
+let camAngle = Math.PI * 0.25, camZoom = 1;
+const pan = new THREE.Vector3();
+const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 4000);
+function fitCam() {
+  const aspect = innerWidth / innerHeight;
+  const diag = (size.x + size.z) * 0.5;          // the isometric view sees the diagonal
+  let halfW = diag * 0.78 * camZoom, halfH = halfW / aspect;
+  const needH = diag * 0.52 * camZoom;
+  if (halfH < needH) { halfH = needH; halfW = halfH * aspect; }
+  cam.left = -halfW; cam.right = halfW; cam.top = halfH; cam.bottom = -halfH;
+  const span = Math.max(size.x, size.z) + 40;
+  const eye = mid.clone().add(pan);
+  cam.position.set(eye.x + Math.cos(camAngle) * span, eye.y + span * 0.9, eye.z + Math.sin(camAngle) * span);
+  cam.lookAt(eye); cam.updateProjectionMatrix();
+}
+fitCam();
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('cv'), antialias: true });
+renderer.setSize(innerWidth, innerHeight, false);
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight, false); fitCam(); });
+
+/* ───────────────────────── ui ───────────────────────── */
+const $ = s => document.querySelector(s);
+function log(html, cls) {
+  const d = document.createElement('div'); d.className = cls || ''; d.innerHTML = html;
+  $('#log').insertBefore(d, $('#log').firstChild);
+  while ($('#log').children.length > 60) $('#log').removeChild($('#log').lastChild);
+}
+function refresh() {
+  $('#turn').textContent = G.over ? G.msg : (G.turn === 'blue' ? 'Your turn' : 'Enemy turn');
+  $('#round').textContent = `Round ${G.round}/${G.limit}`;
+  for (const [el, team, c] of [[$('#pb'), 'blue', 'b'], [$('#pr'), 'red', 'r']]) {
+    el.innerHTML = '';
+    for (let i = 0; i < G.target; i++) {
+      const d = document.createElement('div');
+      d.className = 'pip' + (i < G.holds[team] ? ' ' + c : ''); el.appendChild(d);
+    }
+  }
+  $('#end').disabled = G.busy || G.over || G.turn !== 'blue';
+  const u = G.sel;
+  $('#unit').innerHTML = u ? `
+    <h3 style="color:#${CLASSES[u.cls].col.toString(16).padStart(6,'0')}">${u.name}</h3>
+    <div class="sub">${CLASSES[u.cls].name} · ${WEAPONS[u.weap].name}</div>
+    <div class="bar"><span>HP</span><div class="track"><div class="fill" style="width:${Math.max(0,u.hp/u.maxHp*100)}%;background:${u.hp/u.maxHp>.35?'#5fd13d':'#ff4d34'}"></div></div><span>${Math.max(0,u.hp)}</span></div>
+    <div class="bar"><span>AP</span><div class="track"><div class="fill" style="width:${u.ap/u.maxAp*100}%;background:#63c2ff"></div></div><span>${u.ap}</span></div>
+    <div class="sub" style="margin-top:8px">Shoot ${WEAPONS[u.weap].ap} AP · Range ${WEAPONS[u.weap].max}</div>
+    <div style="font-size:12px;color:#a99e92;margin-top:4px">${canFire(u) ? 'Holding AP — will return fire' : 'Not enough AP to return fire'}</div>`
+    : '<div class="sub">Select an operative</div>';
+  const rr = $('#roster'); rr.innerHTML = '';
+  for (const v of G.units.filter(v => v.team === 'blue')) {
+    const d = document.createElement('div');
+    d.className = 'r' + (G.sel === v ? ' sel' : '') + (v.alive ? '' : ' dead');
+    d.innerHTML = `<span class="dot" style="background:#${CLASSES[v.cls].col.toString(16).padStart(6,'0')}"></span>
+      <span style="flex:0 0 84px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${v.name}</span>
+      <span class="mini"><i style="width:${Math.max(0,v.hp/v.maxHp*100)}%"></i></span>
+      <span style="color:#63c2ff;font-size:11px">${v.alive ? v.ap : '—'}</span>`;
+    if (v.alive) d.onclick = () => select(v);
+    rr.appendChild(d);
+  }
+  for (const g of unitGroup.children) g.userData.sel.visible = (g.userData.u === G.sel);
+}
+function select(u) {
+  if (!u.alive) return;
+  G.sel = u;
+  G.reach = (u.team === G.turn && !G.busy) ? reach(u) : null;
+  drawMove(); refresh();
+}
+function drawMove() {
+  moveGroup.clear();
+  if (!G.reach || !G.sel) return;
+  const w = WEAPONS[G.sel.weap];
+  for (const [, r] of G.reach) {
+    const q = new THREE.Mesh(pickGeo, overlayMat.move);
+    const p = tileWorld(r.x, r.y);
+    q.position.set(p.x, p.y + 0.06, p.z);
+    q.scale.setScalar(r.cost + w.ap <= G.sel.ap ? 1 : 0.7);
+    moveGroup.add(q);
+  }
+}
+
+/* ───────────────────────── actions ───────────────────────── */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function moveTo(u, path) {
+  G.busy = true; G.reach = null; drawMove(); refresh();
+  for (const step of path) {
+    u.ap -= 1; u.x = step.x; u.y = step.y; u.moved = true;
+    placeMesh(u);
+    await sleep(90);
+    for (const w of G.units) {
+      if (!u.alive) break;
+      if (!w.alive || w.team === u.team || w.reacted >= 1 || !canFire(w) || !canTarget(w, u)) continue;
+      w.reacted++;
+      log(`<b>${w.name}</b> fires on the move!`, 'sys');
+      await shoot(w, u, true);
+    }
+    if (!u.alive) break;
+  }
+  G.busy = false;
+  if (u.alive && u.team === G.turn) select(u); else refresh();
+  checkEnd();
+}
+
+async function shoot(sh, tg, reaction) {
+  const w = WEAPONS[sh.weap];
+  sh.ap -= w.ap;
+  const info = shotInfo(sh, tg);
+  let chance = info.chance - (reaction ? 15 : 0);
+  const hit = Math.random() * 100 < Math.max(5, chance);
+  tracer(sh, tg, hit);
+  await sleep(160);
+  if (hit) {
+    let dmg = Math.round(info.lo + Math.random() * (info.hi - info.lo));
+    if (reaction) dmg = Math.round(dmg * 0.6);
+    tg.hp -= dmg;
+    log(`<b>${sh.name}</b> hits <b>${tg.name}</b> for ${dmg}.${info.cov === 0 ? ' <span class="hit">FLANKED!</span>' : ''}`, 'hit');
+    if (tg.hp <= 0) {
+      tg.alive = false;
+      fell.push({ g: tg.obj, life: 1 });
+      log(`<b>${tg.name}</b> is down.`, 'sys');
+      if (G.sel === tg) G.sel = null;
+    }
+  } else {
+    log(`<b>${sh.name}</b> misses <b>${tg.name}</b>. (${Math.max(5,chance)}%)`, 'miss');
+  }
+  refresh();
+  await sleep(120);
+}
+
+const fx = [], fell = [];
+function tracer(a, b, hit) {
+  const pa = tileWorld(a.x, a.y).add(new THREE.Vector3(0, 1.0, 0));
+  const pb = tileWorld(b.x, b.y).add(new THREE.Vector3(0, 1.0, 0));
+  const g = new THREE.BufferGeometry().setFromPoints([pa, pb]);
+  const m = new THREE.LineBasicMaterial({ color: hit ? 0xfff0b8 : 0x8ea0b0, transparent: true });
+  const line = new THREE.Line(g, m); scene.add(line);
+  fx.push({ line, life: 1 });
+}
+
+/* ───────────────────────── turns ───────────────────────── */
+function beginTurn(team) {
+  G.turn = team;
+  for (const u of G.units) {
+    u.reacted = 0;
+    if (u.team === team) { u.ap = u.maxAp; u.moved = false; }
+  }
+  G.sel = null;
+  const first = living(team)[0];
+  if (team === 'blue' && first) select(first); else refresh();
+  if (team === 'red' && !G.sim) setTimeout(() => runAI('red'), 500);
+}
+async function endTurn() {
+  if (G.busy || G.over) return;
+  if (G.turn === 'blue') { beginTurn('red'); return; }
+  // score the objective
+  const b = living('blue').filter(u => objKey.has(u.x + ',' + u.y)).length;
+  const r = living('red').filter(u => objKey.has(u.x + ',' + u.y)).length;
+  if (b && !r) { G.holds.blue++; G.holds.red = 0; log(`<span class="sys">Blue holds the objective (${G.holds.blue}/${G.target}).</span>`); }
+  else if (r && !b) { G.holds.red++; G.holds.blue = 0; log(`<span class="sys">Red holds the objective (${G.holds.red}/${G.target}).</span>`); }
+  refresh();
+  if (checkEnd(true)) return;
+  G.round++;
+  beginTurn('blue');
+}
+function checkEnd(afterScore) {
+  if (G.over) return false;
+  const b = living('blue').length, r = living('red').length;
+  let msg = null;
+  if (!r && b) msg = 'Victory — enemy squad eliminated.';
+  else if (!b && r) msg = 'Defeat — your squad was wiped out.';
+  else if (G.holds.blue >= G.target) msg = 'Victory — objective held.';
+  else if (G.holds.red >= G.target) msg = 'Defeat — they held the objective.';
+  else if (afterScore && G.round >= G.limit) msg = G.holds.blue > G.holds.red ? 'Victory on objective score.' : G.holds.red > G.holds.blue ? 'Defeat on objective score.' : 'Draw.';
+  if (msg) {
+    G.over = true; G.msg = msg;
+    log(`<span class="sys">${msg}</span>`); refresh();
+    if (!G.sim) { $('#overmsg').textContent = msg; $('#over').style.display = 'block'; }
+    return true;
+  }
+  return false;
+}
+
+async function runAI(team, autoEnd) {
+  if (G.over) return;
+  team = team || G.turn;
+  if (autoEnd === undefined) autoEnd = true;
+  G.busy = true; refresh();
+  for (const u of living(team)) {
+    if (G.over || !u.alive) continue;
+    const rc = reach(u);
+    const cands = [{ x: u.x, y: u.y, cost: 0 }, ...[...rc.values()].map(r => ({ x: r.x, y: r.y, cost: r.cost }))];
+    let best = null;
+    for (const c of cands) {
+      const ox = u.x, oy = u.y; u.x = c.x; u.y = c.y;
+      let shotVal = 0;
+      if (u.ap - c.cost >= WEAPONS[u.weap].ap) {
+        for (const f of foesOf(u)) {
+          if (!canTarget(u, f)) continue;
+          const i = shotInfo(u, f);
+          shotVal = Math.max(shotVal, i.chance / 100 * ((i.lo + i.hi) / 2) * (((i.lo+i.hi)/2 >= f.hp) ? 1.9 : 1));
+        }
+      }
+      let cov = 0;
+      for (const f of foesOf(u)) cov += coverOf(c.x, c.y, f.x, f.y);
+      cov /= Math.max(1, foesOf(u).length);
+      const onObj = objKey.has(c.x + ',' + c.y);
+      // walking distance, not as the crow flies - the railings around the
+      // memorial mean the two are wildly different
+      const dObj = objDist.has(c.x + ',' + c.y) ? objDist.get(c.x + ',' + c.y) : 60;
+      // the longer the match runs the harder both sides push for the ground -
+      // without this they settle into a firefight and nobody ever takes it
+      const push = 1 + G.round * 0.45;
+      const score = shotVal * 1.5 + cov * 12
+                  + (onObj ? 44 * push : -dObj * 2.6 * push) - c.cost * 0.35;
+      u.x = ox; u.y = oy;
+      if (!best || score > best.score) best = { ...c, score };
+    }
+    if (best && (best.x !== u.x || best.y !== u.y)) {
+      const p = pathTo(rc, u, best.x, best.y);
+      if (p?.length) await moveTo(u, p);
+    }
+    if (!u.alive || G.over) continue;
+    let guard = 0;
+    while (canFire(u) && guard++ < 3) {
+      let pick = null;
+      for (const f of foesOf(u)) {
+        if (!canTarget(u, f)) continue;
+        const i = shotInfo(u, f);
+        const v = i.chance / 100 * ((i.lo + i.hi) / 2);
+        if (!pick || v > pick.v) pick = { f, v, i };
+      }
+      if (!pick || (pick.i.chance < 25 && pick.i.lo < pick.f.hp)) break;
+      await shoot(u, pick.f, false);
+    }
+    await sleep(140);
+  }
+  G.busy = false;
+  if (!G.over && autoEnd) endTurn();
+}
+
+/* ───────────────────────── input ───────────────────────── */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pickTile(ev) {
+  ndc.x = (ev.clientX / innerWidth) * 2 - 1;
+  ndc.y = -(ev.clientY / innerHeight) * 2 + 1;
+  ray.setFromCamera(ndc, cam);
+  const hits = ray.intersectObjects(picks.children, false);
+  return hits.length ? hits[0].object.userData.t : null;
+}
+document.getElementById('cv').addEventListener('click', async ev => {
+  if (G.busy || G.over || G.turn !== 'blue') return;
+  const t = pickTile(ev);
+  if (!t) return;
+  const occ = unitAt(t.x, t.y);
+  if (occ && occ.team === 'blue') { select(occ); return; }
+  const u = G.sel;
+  if (!u) return;
+  if (occ && occ.team === 'red') {
+    if (canTarget(u, occ) && canFire(u)) {
+      G.busy = true; G.reach = null; drawMove(); refresh();
+      await shoot(u, occ, false);
+      G.busy = false; if (u.alive) select(u); checkEnd();
+    }
+    return;
+  }
+  if (G.reach?.has(t.x + ',' + t.y)) {
+    const p = pathTo(G.reach, u, t.x, t.y);
+    if (p?.length) await moveTo(u, p);
+  }
+});
+document.getElementById('cv').addEventListener('mousemove', ev => {
+  if (!G.sel || G.busy) { $('#tip').style.display = 'none'; return; }
+  const t = pickTile(ev);
+  const occ = t && unitAt(t.x, t.y);
+  if (occ && occ.team === 'red' && canTarget(G.sel, occ) && canFire(G.sel)) {
+    const i = shotInfo(G.sel, occ);
+    $('#tip').style.display = 'block';
+    $('#tip').innerHTML = `<h3 style="font-size:22px;color:${i.chance>=70?'#5fd13d':i.chance>=40?'#ffd23f':'#ff6b52'}">${i.chance}%</h3>
+      <div class="sub">${occ.name} · ${['open','low cover','hard cover','full cover'][i.cov]}</div>
+      <div style="font-size:12px;margin-top:4px">Damage ${i.lo}–${i.hi} · ${i.d.toFixed(1)} tiles</div>`;
+  } else $('#tip').style.display = 'none';
+});
+$('#end').onclick = () => endTurn();
+$('#again').onclick = () => { $('#over').style.display = 'none'; restart(); };
+$('#deployBtn').onclick = () => { $('#brief').style.display = 'none'; };
+
+{
+  const cv = document.getElementById('cv');
+  let drag = null, moved = 0;
+  cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; moved = 0; });
+  addEventListener('pointerup', () => { drag = null; });
+  addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    moved += Math.abs(dx) + Math.abs(dy);
+    if (moved < 6) return;
+    const k = (cam.right - cam.left) / innerWidth;
+    const right = new THREE.Vector3().setFromMatrixColumn(cam.matrix, 0);
+    const up = new THREE.Vector3().setFromMatrixColumn(cam.matrix, 1);
+    up.y = 0; up.normalize();
+    pan.addScaledVector(right, -dx * k).addScaledVector(up, dy * k);
+    drag = { x: e.clientX, y: e.clientY };
+    fitCam();
+  });
+  cv.addEventListener('click', e => { if (moved >= 6) e.stopPropagation(); }, true);
+}
+function centreOn(u) {
+  if (!u) return;
+  const p = tileWorld(u.x, u.y);
+  pan.set(p.x - mid.x, 0, p.z - mid.z); fitCam();
+}
+addEventListener('keydown', e => {
+  if (e.key === 'a' || e.key === 'ArrowLeft') { camAngle -= 0.2; fitCam(); }
+  if (e.key === 'd' || e.key === 'ArrowRight') { camAngle += 0.2; fitCam(); }
+  if (e.key === '=' || e.key === '+') { camZoom = Math.max(0.35, camZoom - 0.08); fitCam(); }
+  if (e.key === '-') { camZoom = Math.min(1.6, camZoom + 0.08); fitCam(); }
+  if (e.key === 'Enter') endTurn();
+  if (e.key === ' ') { centreOn(G.sel); e.preventDefault(); }
+});
+
+/* ───────────────────────── start ───────────────────────── */
+/* Both squads field the same four stat lines, so the match is decided by
+   ground and dice rather than by the roster; only the faces differ. */
+const SLOTS = [
+  { cls: 'commando', weap: 'rifle'   },
+  { cls: 'engineer', weap: 'shotgun' },
+  { cls: 'captain',  weap: 'rifle'   },
+  { cls: 'agent',    weap: 'sniper'  },
+];
+const BLUE = [['Sunny Deakins','commando'], ['Spanner Mo','engineer'],
+              ['Vic Rusk','captain'],       ['Shadow Nikki','agent']];
+const RED  = [['Scrag','commando'],         ['Bruiser','heavy'],
+              ['Nurse Pip','medic'],        ['Slick','agent']];
+function deploy() {
+  SLOTS.forEach((s, i) => {
+    for (const [team, roster, spawns] of [['blue', BLUE, spawnA], ['red', RED, spawnB]]) {
+      const [name, model] = roster[i];
+      const u = makeUnit(team, s.cls, model, s.weap, name);
+      const p = spawns[i] || spawns[0];
+      u.x = p.x; u.y = p.y; G.units.push(u);
+    }
+  });
+  for (const u of G.units) spawnMesh(u);
+}
+deploy();
+
+for (const el of ['#top','#unit','#roster','#log']) $(el).style.display = el === '#top' || el === '#roster' ? 'flex' : 'block';
+$('#top').style.display = 'flex'; $('#roster').style.display = 'flex';
+boot.style.display = 'none';
+$('#briefmap').textContent = L.source.replace(/_/g, ' ');
+$('#brief').style.display = 'flex';
+log(`<span class="sys">${L.source} — hold the objective ${G.target} rounds, or wipe them out.</span>`);
+beginTurn('blue');
+function restart() {
+  G.units.length = 0; uid = 1;
+  unitGroup.clear();
+  G.sel = null; G.reach = null; G.round = 1; G.over = false; G.msg = null;
+  G.holds.blue = 0; G.holds.red = 0; G.busy = false;
+  $('#log').innerHTML = '';
+  deploy();
+  log(`<span class="sys">${L.source} — hold the objective ${G.target} rounds, or wipe them out.</span>`);
+  beginTurn('blue');
+}
+
+window.__ready = true;
+/* hook used by the headless test harness */
+window.__game = { G, CLASSES, WEAPONS, arena, objective, objKey, spawnA, spawnB,
+                  reach, pathTo, moveTo, shoot, shotInfo, canTarget, canFire, hasLOS,
+                  canStep, T, living, select, beginTurn, endTurn, runAI, sleep, restart };
+window.__hideOverlays = () => { moveGroup.visible = false; objGroup.visible = false; };
+window.__frame = (x, y, zoom) => {              // centre and zoom, for capture
+  const p = tileWorld(x, y);
+  pan.set(p.x - mid.x, 0, p.z - mid.z);
+  camZoom = zoom; fitCam();
+};
+window.__screenOf = (x, y) => {                 // tile -> canvas pixels, for the click harness
+  const p = tileWorld(x, y).clone().project(cam);
+  return { x: (p.x + 1) / 2 * innerWidth, y: (-p.y + 1) / 2 * innerHeight };
+};
+
+
+let last = performance.now();
+(function frame() {
+  const now = performance.now(), dt = (now - last) / 1000; last = now;
+  for (let i = fx.length - 1; i >= 0; i--) {
+    fx[i].life -= dt * 2.6;
+    fx[i].line.material.opacity = Math.max(0, fx[i].life);
+    if (fx[i].life <= 0) { scene.remove(fx[i].line); fx.splice(i, 1); }
+  }
+  for (let i = fell.length - 1; i >= 0; i--) {
+    fell[i].life -= dt * 1.4;
+    const g = fell[i].g;
+    g.rotation.z = (1 - Math.max(0, fell[i].life)) * Math.PI * 0.5;
+    g.position.y -= dt * 0.25;
+    if (fell[i].life <= 0) { g.visible = false; fell.splice(i, 1); }
+  }
+  renderer.render(scene, cam);
+  requestAnimationFrame(frame);
+})();
+} catch (e) {
+  window.__err = e.message;
+  boot.textContent = 'ERROR: ' + e.message;
+  console.error(e);
+}
+</script>
+</body>
+</html>

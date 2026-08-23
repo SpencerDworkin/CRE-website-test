@@ -51,11 +51,29 @@ the cover state and the damage band. The ability button targets separately.
 
 Keyboard: `Tab` cycles operatives, `Enter` ends the turn, `Esc` cancels ability targeting.
 
+## The 3D build
+
+`game/` is a second, separate build that renders the original game's own levels and characters in 3D
+instead of the original art above. **No game content is committed here** — `game/build.py` reads your
+own copy of the archived client and extracts what the browser needs, locally. See `game/README.md`.
+
+The tactical grid is not in the archive: the scene that bound a Skirmish art level to a gameplay grid
+was never shipped, and pairing the shipped grids against the art measures out at 0.29 open-clear —
+no better than chance. So `game/grid.js` measures the board off the art itself, rasterising every
+triangle onto a quarter-tile lattice and reading cover off the height of whatever sits on the boundary
+between two tiles.
+
+The two builds share no code. This one is the original-art tribute; that one is a preservation
+exercise that only runs against assets you already have.
+
 ## Project layout
 
 ```
 index.html                the entire game — markup, styles and engine
 tools/artifact-body.sh    strips the HTML wrapper off index.html for embedding elsewhere
+tools/extract/            what was recovered from the archived client, and how (see FINDINGS.md)
+tools/3d/                 the asset-extraction experiments the 3D build grew out of
+game/                     the 3D build: game.html, grid.js, build.py, serve.py
 ```
 
 `index.html` is the whole game and the only file you need — edit it directly. `tools/artifact-body.sh`
