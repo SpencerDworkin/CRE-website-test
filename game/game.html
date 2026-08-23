@@ -268,7 +268,7 @@ function reach(u) {
     }
   }
   seen.delete(k(u.x, u.y));
-  for (const [kk, v] of [...seen]) if (unitAt(v.x, v.y)) seen.delete(kk);
+  for (const v of seen.values()) v.land = !unitAt(v.x, v.y);
   return seen;
 }
 function pathTo(rc, u, tx, ty) {
@@ -461,6 +461,7 @@ function drawMove() {
   if (!G.reach || !G.sel) return;
   const w = WEAPONS[G.sel.weap];
   for (const [, r] of G.reach) {
+    if (!r.land) continue;
     const q = new THREE.Mesh(pickGeo, overlayMat.move);
     const p = tileWorld(r.x, r.y);
     q.position.set(p.x, p.y + 0.06, p.z);
@@ -579,7 +580,8 @@ async function runAI(team, autoEnd) {
   for (const u of living(team)) {
     if (G.over || !u.alive) continue;
     const rc = reach(u);
-    const cands = [{ x: u.x, y: u.y, cost: 0 }, ...[...rc.values()].map(r => ({ x: r.x, y: r.y, cost: r.cost }))];
+    const cands = [{ x: u.x, y: u.y, cost: 0 },
+                   ...[...rc.values()].filter(r => r.land).map(r => ({ x: r.x, y: r.y, cost: r.cost }))];
     let best = null;
     for (const c of cands) {
       const ox = u.x, oy = u.y; u.x = c.x; u.y = c.y;
@@ -654,7 +656,7 @@ document.getElementById('cv').addEventListener('click', async ev => {
     }
     return;
   }
-  if (G.reach?.has(t.x + ',' + t.y)) {
+  if (G.reach?.get(t.x + ',' + t.y)?.land) {
     const p = pathTo(G.reach, u, t.x, t.y);
     if (p?.length) await moveTo(u, p);
   }
