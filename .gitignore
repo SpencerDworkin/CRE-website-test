@@ -7,3 +7,11 @@ unity/
 ta/
 *.zip
 *.part*
+bundles/
+scene/
+tex/
+vid/
+frames/
+mesh/
+node_modules/
+*.png
