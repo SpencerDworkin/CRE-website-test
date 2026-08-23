@@ -1,0 +1,9 @@
+
+# extracted game content is never committed — regenerate it from your own archive copy
+levels/
+levels_full/
+maps/
+unity/
+ta/
+*.zip
+*.part*
