@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>derived grid on the real level</title>
+<style>
+ html,body{margin:0;height:100%;background:#0e0c0a;overflow:hidden}
+ #cv{display:block;width:100vw;height:100vh}
+ #hud{position:fixed;left:12px;top:10px;font:13px/1.5 monospace;color:#e8e2d4;
+      background:rgba(0,0,0,.6);padding:8px 12px;border-radius:8px;white-space:pre}
+ #key{position:fixed;left:12px;bottom:12px;font:12px/1.6 monospace;color:#e8e2d4;
+      background:rgba(0,0,0,.6);padding:8px 12px;border-radius:8px}
+ i{display:inline-block;width:11px;height:11px;margin-right:6px;border-radius:2px}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="hud">loading…</div>
+<div id="key">
+  <div><i style="background:#4ade80"></i>open</div>
+  <div><i style="background:#ffd23f"></i>low cover</div>
+  <div><i style="background:#fb923c"></i>hard cover</div>
+  <div><i style="background:#ef4444"></i>blocks sight</div>
+</div>
+<script type="module">
+import * as THREE from './three.module.js';
+const hud = document.getElementById('hud');
+window.__ready = false; window.__err = null;
+try {
+  const d = await (await fetch('./play.json')).json();
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x9fc7e8);
+
+  const loader = new THREE.TextureLoader();
+  const texes = d.textures.map(n => {
+    const t = loader.load('./tex/' + n);
+    t.colorSpace = THREE.SRGBColorSpace; t.flipY = false;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+  });
+  const geoms = d.meshes.map(m => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(m.pos, 3));
+    if (m.uv?.length) g.setAttribute('uv', new THREE.Float32BufferAttribute(m.uv, 2));
+    g.setIndex(m.idx); g.computeVertexNormals(); return g;
+  });
+  const fallback = new THREE.MeshBasicMaterial({ color: 0xb9b2a2 });
+  const mats = texes.map(t => new THREE.MeshBasicMaterial({ map: t, alphaTest: 0.35, side: THREE.DoubleSide }));
+
+  const art = new THREE.Group();
+  for (const n of d.nodes) {
+    const m = new THREE.Mesh(geoms[n.mesh], n.tex >= 0 ? mats[n.tex] : fallback);
+    m.position.set(...n.p); m.quaternion.set(...n.q); m.scale.set(...n.s);
+    art.add(m);
+  }
+  scene.add(art);
+
+  const COL = [0x4ade80, 0xffd23f, 0xfb923c, 0xef4444];
+  const geo = new THREE.PlaneGeometry(0.88, 0.88).rotateX(-Math.PI / 2);
+  const byKind = COL.map(c => new THREE.MeshBasicMaterial({
+    color: c, transparent: true, opacity: 0.5, depthWrite: false }));
+  const grid = new THREE.Group();
+  for (const t of d.tiles) {
+    const q = new THREE.Mesh(geo, byKind[t.k]);
+    q.position.set(t.w[0], t.w[1] + 0.08, t.w[2]);
+    grid.add(q);
+  }
+  scene.add(grid);
+
+  const box = new THREE.Box3().setFromObject(art);
+  const size = box.getSize(new THREE.Vector3());
+  const mid = box.getCenter(new THREE.Vector3());
+  const aspect = window.innerWidth / window.innerHeight;
+  const halfW = (size.x + size.z) * 0.72 / 2, halfH = halfW / aspect;
+  const span = Math.max(size.x, size.z);
+  const cam = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 4000);
+  cam.position.set(mid.x + span, mid.y + span * 0.95, mid.z + span);
+  cam.lookAt(mid);
+
+  const r = new THREE.WebGLRenderer({ canvas: document.getElementById('cv'), antialias: true });
+  r.setSize(window.innerWidth, window.innerHeight, false); r.setPixelRatio(1);
+  r.render(scene, cam);
+
+  const k = {}; d.tiles.forEach(t => k[t.k] = (k[t.k] || 0) + 1);
+  hud.textContent = `${d.source}\ngrid ${d.grid[0]}x${d.grid[1]}  tiles ${d.tiles.length}\n` +
+                    `open ${k[0]||0}  low ${k[1]||0}  hard ${k[2]||0}  blocking ${k[3]||0}`;
+  window.__ready = true;
+} catch (e) { window.__err = e.message; hud.textContent = 'ERROR: ' + e.message; }
+</script>
+</body>
+</html>
