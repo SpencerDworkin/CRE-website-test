@@ -435,58 +435,61 @@ const ENEMY_NAMES = ['Scrag','Mullet','Bolts','Tinny','Grinder','Vic Rusk','Pox'
      *  objective tile          A / B deployment tiles
    Original layouts; the engine also loads levels extracted from the real game. */
 const MAPS = [
-  { id:'alley', name:'Chip Shop Alley', turns:5,
-    blurb:'Tight back street. Two lanes of hard cover flank the pavement, with raised kerbs either side of the objective.',
-    ground:'#cdbfa4', accent:'#c2b397', wall:{top:'#e8d9b8',left:'#9d7f5a',right:'#c0a077'},
+  { id:'gardens', name:'Fountain Gardens', turns:5,
+    blurb:'Municipal park bounded by hedge. Flowerbeds, railings and statues around the green.',
+    wall:{top:'#cdc4ae',left:'#7d7361',right:'#a29881'},
     rows:[
-      '################',
-      '#AA..o......oBB#',
-      '#AA...x..x...BB#',
-      '#..###....###..#',
-      '#..1.o.**.o.1..#',
-      '#~.1.o.**.o.1.~#',
-      '#~.1.o.**.o.1.~#',
-      '#..1.o.**.o.1..#',
-      '#..###....###..#',
-      '#AA...x..x...BB#',
-      '#AA..o......oBB#',
-      '################' ] },
+      '#HH#HHHH##HHHH#HH#',
+      'HAA,,,LrrrrL,,,BBH',
+      'HAA,,,,,,,,,,,,BBH',
+      'H,HHH,,ffff,,HHH,H',
+      '#,,,,,f****f,,,,,#',
+      'HLS,,r,f**f,r,,SLH',
+      'HLS,,r,f**f,r,,SLH',
+      '#,,,,,f****f,,,,,#',
+      'H,,fff,,,,,,fff,,H',
+      'HAA,,,,,,,,,,,,BBH',
+      'HAA,,,LrrrrL,,,BBH',
+      '#HH#HHHH##HHHH#HH#'
+      ] },
   { id:'scrap', name:'Scrapyard Sunday', turns:5,
-    blurb:'Open ground and long firing lanes, broken up by wrecks. Raised platforms overlook the middle.',
-    ground:'#c9ad7e', accent:'#bea273', wall:{top:'#d8a25c',left:'#8a5c2f',right:'#ad7440'},
+    blurb:'Open dirt yard stacked with crates and wrecks. Long firing lanes, raised loading bays.',
+    wall:{top:'#c9a86c',left:'#7a5a30',right:'#a07440'},
     rows:[
       '####################',
-      '#AA..~....xx....~..B#',
-      '#AA.o..oo....oo..o.B#',
-      '#....#....##....#...#',
-      '#.o..#.2.**.2.#..o..#',
-      '#~...~.2.**.2.~...~.#',
-      '#~...~.2.**.2.~...~.#',
-      '#.o..#.2.**.2.#..o..#',
-      '#....#....##....#...#',
-      '#AA.o..oo....oo..o.B#',
-      '#AA..~....xx....~..B#',
-      '####################' ] },
+      '#AA~~~cc~~~~cc~~~BB#',
+      '#AA~~~~~~~~~~~~~~BB#',
+      '#~~~#~~~~~~~~~~#~~~#',
+      '#~c~#~2~****~2~#~c~#',
+      '#~~~x~2~****~2~x~~~#',
+      '#~~~x~2~****~2~x~~~#',
+      '#~c~#~2~****~2~#~c~#',
+      '#~~~#~~~~~~~~~~#~~~#',
+      '#AA~~~~~~~~~~~~~~BB#',
+      '#AA~~~cc~~~~cc~~~BB#',
+      '####################'
+      ] },
   { id:'carpark', name:'Multi-Storey Mayhem', turns:6,
-    blurb:'Head-on car park brawl across split levels. Big central objective and nowhere to hide crossing it.',
-    ground:'#bcc0c8', accent:'#b1b5be', wall:{top:'#d4d8de',left:'#7d838f',right:'#9ba1ad'},
+    blurb:'Split-level concrete deck. Railings along the drops, nowhere to hide crossing the middle.',
+    wall:{top:'#cfd3da',left:'#767c88',right:'#9aa0ac'},
     rows:[
       '##################',
       '#AAAAAAAAAAAAAAAA#',
-      '#..o..x......x..o#',
-      '#.###..~~~~..###.#',
+      '#..c..r....r..c..#',
+      '#.###..2222..###.#',
       '#..2....**....2..#',
-      '#~.2.o.****.o.2.~#',
-      '#~.2.o.****.o.2.~#',
+      '#L.2.c.****.c.2.L#',
+      '#L.2.c.****.c.2.L#',
       '#..2....**....2..#',
-      '#.###..~~~~..###.#',
-      '#..o..x......x..o#',
+      '#.###..2222..###.#',
+      '#..c..r....r..c..#',
       '#BBBBBBBBBBBBBBBB#',
-      '##################' ] },
+      '##################'
+      ] },
 ];
 
 const MISSIONS = [
-  { id:1, name:'Turf War', map:'alley', budget:14, rounds:16,
+  { id:1, name:'Turf War', map:'gardens', budget:14, rounds:16,
     brief:'Three of theirs are squatting on our corner. Take the pavement and hold it.',
     enemy:[ {cls:'commando',w:'assaultrifle'}, {cls:'commando',w:'pistol'}, {cls:'engineer',w:'pistol'} ] },
   { id:2, name:'Bin Day', map:'scrap', budget:20, rounds:16,
@@ -499,7 +502,7 @@ const MISSIONS = [
     brief:'Two marksmen have the yard zeroed. Break line of sight or get picked apart.',
     enemy:[ {cls:'agent',w:'sniperrifle'}, {cls:'captain',w:'semiautorifle'}, {cls:'medic',w:'pistol'},
             {cls:'engineer',w:'pistol'}, {cls:'commando',w:'baseballbat'} ] },
-  { id:5, name:'Last Orders', map:'alley', budget:26, rounds:20,
+  { id:5, name:'Last Orders', map:'gardens', budget:26, rounds:20,
     brief:'Their whole firm, on our street, one last time. Everything you have learned, all at once.',
     enemy:[ {cls:'captain',w:'assaultrifle'}, {cls:'heavy',w:'lmg'}, {cls:'commando',w:'baseballbat'},
             {cls:'medic',w:'pistol'}, {cls:'agent',w:'uzi'}, {cls:'commando',w:'knife'} ] },
@@ -537,9 +540,33 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const OPP = [2,3,0,1];
 const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];
 
-function blankTile(){ return { cover:[0,0,0,0], solid:[0,0,0,0], vis:0, h:0, obj:0, spawn:0, rubble:0 }; }
+/* Terrain vocabulary. Every entry still resolves to the same per-edge cover and
+   solidity model the engine runs on - only the material and prop drawn differ. */
+const TERRAIN = {
+  '.': { mat:'path'   },
+  ',': { mat:'grass'  },
+  'f': { mat:'flower' },
+  '~': { mat:'dirt', rubble:1 },
+  '#': { mat:'path',  prop:'wall',    cover:COVER_SOLID, sight:1 },
+  'H': { mat:'grass', prop:'hedge',   cover:COVER_SOLID, sight:1 },
+  'S': { mat:'path',  prop:'statue',  cover:COVER_SOLID, sight:1 },
+  'r': { mat:'path',  prop:'railing', cover:COVER_HIGH,  sight:0 },
+  'x': { mat:'path',  prop:'bench',   cover:COVER_HIGH,  sight:0 },
+  'c': { mat:'path',  prop:'crate',   cover:COVER_HIGH,  sight:0 },
+  'o': { mat:'grass', prop:'planter', cover:COVER_LOW,   sight:0 },
+  'L': { mat:'path',  prop:'lamp',    cover:COVER_LOW,   sight:0 },
+  '*': { mat:'path',  obj:1 },
+  'A': { mat:'path',  spawn:1 },
+  'B': { mat:'path',  spawn:2 },
+};
+function terrainOf(c){
+  if(c>='1'&&c<='4') return { mat:'path', h:+c };
+  return TERRAIN[c] || { mat:'path' };
+}
 
-// Build the edge model from an authored ASCII map.
+function blankTile(){ return { cover:[0,0,0,0], solid:[0,0,0,0], vis:0, h:0, obj:0, spawn:0,
+                               rubble:0, mat:'path', prop:null }; }
+
 function loadMap(mapDef){
   G.map = mapDef;
   const rows = mapDef.rows;
@@ -547,43 +574,26 @@ function loadMap(mapDef){
   const T = [];
   for(let y=0;y<ROWS;y++){ T.push([]); for(let x=0;x<COLS;x++) T[y].push(blankTile()); }
   G.tiles = T;
-  G.objective = [];
-  G.spawnsA = []; G.spawnsB = [];
+  G.objective = []; G.spawnsA = []; G.spawnsB = [];
 
-  // pass 1: per-tile properties
   for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-    const c = rows[y][x], t = T[y][x];
-    if(c>='1'&&c<='4') t.h = +c;
-    else if(c==='~') t.rubble = 1;
-    else if(c==='*'){ t.obj = 1; G.objective.push({x,y}); }
-    else if(c==='A'){ t.spawn = 1; G.spawnsA.push({x,y}); }
-    else if(c==='B'){ t.spawn = 2; G.spawnsB.push({x,y}); }
-    t.blockChar = c;
+    const def = terrainOf(rows[y][x]), t = T[y][x];
+    t.mat = def.mat || 'path';
+    if(def.h) t.h = def.h;
+    if(def.rubble) t.rubble = 1;
+    if(def.obj){ t.obj = 1; G.objective.push({x,y}); }
+    if(def.spawn===1){ t.spawn = 1; G.spawnsA.push({x,y}); }
+    if(def.spawn===2){ t.spawn = 2; G.spawnsB.push({x,y}); }
+    if(def.prop){ t.prop = def.prop; t.block = 1; t.vis = def.sight?1:0; t.strength = def.cover; }
   }
-  // pass 2: turn blocking objects into edge cover on both sides
+  // props become cover and solidity on the edges they sit between
   for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-    const c = rows[y][x];
-    let strength = 0, blocksSight = 0;
-    if(c==='#'){ strength = COVER_SOLID; blocksSight = 1; }
-    else if(c==='x'){ strength = COVER_HIGH; }
-    else if(c==='o'){ strength = COVER_LOW; }
-    if(!strength) continue;
     const t = T[y][x];
-    t.vis = blocksSight; t.block = 1;
+    if(!t.prop) continue;
     for(let d=0;d<4;d++){
       const nx = x+DIRS[d][0], ny = y+DIRS[d][1];
-      t.cover[d] = strength; t.solid[d] = 1;
-      if(inBounds(nx,ny)){ T[ny][nx].cover[OPP[d]] = strength; T[ny][nx].solid[OPP[d]] = 1; }
-    }
-  }
-  // pass 3: elevation changes cost movement but do not block
-  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-    const t = T[y][x];
-    for(let d=0;d<4;d++){
-      const nx=x+DIRS[d][0], ny=y+DIRS[d][1];
-      if(!inBounds(nx,ny)) continue;
-      t.step = t.step||[0,0,0,0];
-      t.step[d] = Math.abs(T[ny][nx].h - t.h);
+      t.cover[d] = t.strength; t.solid[d] = 1;
+      if(inBounds(nx,ny)){ T[ny][nx].cover[OPP[d]] = t.strength; T[ny][nx].solid[OPP[d]] = 1; }
     }
   }
   G.holdTarget = mapDef.turns || 5;
@@ -815,46 +825,29 @@ function shade(hex,amt){               // lighten (+) or darken (-) a #rrggbb
   return `rgb(${f(r)},${f(g)},${f(b)})`;
 }
 function liftOf(x,y){ const t=tile(x,y); return t ? t.h*HSTEP : 0; }
-function drawGround(){
-  const m=G.map;
-  const order=[];
-  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) order.push([x,y]);
-  order.sort((a,b)=>(a[0]+a[1])-(b[0]+b[1]));
-  for(const [x,y] of order){
-    const t=G.tiles[y][x];
-    if(t.block) continue;
-    const lift=liftOf(x,y);
-    if(lift>0){                                  // exposed side of a raised platform
-      const X=sx(x,y), Y=sy(x,y);
-      const south=tile(x,y+1), east=tile(x+1,y);
-      const dropS=south?(t.h-south.h)*HSTEP:lift, dropE=east?(t.h-east.h)*HSTEP:lift;
-      if(dropS>0){
-        ctx.fillStyle=shade(m.accent,-0.34);
-        ctx.beginPath();
-        ctx.moveTo(X-TW/2,Y-lift); ctx.lineTo(X,Y+TH/2-lift);
-        ctx.lineTo(X,Y+TH/2-lift+dropS); ctx.lineTo(X-TW/2,Y-lift+dropS);
-        ctx.closePath(); ctx.fill();
-      }
-      if(dropE>0){
-        ctx.fillStyle=shade(m.accent,-0.18);
-        ctx.beginPath();
-        ctx.moveTo(X+TW/2,Y-lift); ctx.lineTo(X,Y+TH/2-lift);
-        ctx.lineTo(X,Y+TH/2-lift+dropE); ctx.lineTo(X+TW/2,Y-lift+dropE);
-        ctx.closePath(); ctx.fill();
-      }
-    }
-    tilePath(ctx,x,y,lift);
-    ctx.fillStyle = ((x+y)%2===0) ? m.ground : m.accent;
-    ctx.fill();
-    ctx.strokeStyle='rgba(90,70,45,.22)'; ctx.lineWidth=1; ctx.stroke();
-    if(t.rubble){
-      const X=sx(x,y), Y=sy(x,y)-lift;
-      ctx.fillStyle='rgba(70,55,35,.45)';
-      for(let i=0;i<5;i++){
-        const h1=hash(x*7+i,y*13), h2=hash(y*5+i,x*11);
-        ctx.beginPath();
-        ctx.ellipse(X+(h1-.5)*38, Y+(h2-.5)*17, 3.5, 2, 0, 0, 7); ctx.fill();
-      }
+function drawBox(x,y,h,top,left,right,lift){
+  const X=sx(x,y), Y=sy(x,y)-(lift||0);
+  ctx.lineWidth=2.5; ctx.strokeStyle='#2b1f14'; ctx.lineJoin='round';
+  ctx.beginPath();
+  ctx.moveTo(X-TW/2,Y); ctx.lineTo(X,Y+TH/2); ctx.lineTo(X,Y+TH/2-h); ctx.lineTo(X-TW/2,Y-h); ctx.closePath();
+  ctx.fillStyle=left; ctx.fill(); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(X+TW/2,Y); ctx.lineTo(X,Y+TH/2); ctx.lineTo(X,Y+TH/2-h); ctx.lineTo(X+TW/2,Y-h); ctx.closePath();
+  ctx.fillStyle=right; ctx.fill(); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(X,Y-TH/2-h); ctx.lineTo(X+TW/2,Y-h); ctx.lineTo(X,Y+TH/2-h); ctx.lineTo(X-TW/2,Y-h); ctx.closePath();
+  ctx.fillStyle=top; ctx.fill(); ctx.stroke();
+}
+
+// Strokes only the outer boundary of a set of tiles.
+function strokeRegionEdges(tiles,inside){
+  for(const t of tiles){
+    const lift=liftOf(t.x,t.y), X=sx(t.x,t.y), Y=sy(t.x,t.y)-lift;
+    const N=[X,Y-TH/2], E=[X+TW/2,Y], S=[X,Y+TH/2], W=[X-TW/2,Y];
+    const edges=[[[1,0],E,S],[[-1,0],W,N],[[0,1],S,W],[[0,-1],N,E]];
+    for(const [d,p,q] of edges){
+      if(inside(t.x+d[0],t.y+d[1])) continue;
+      ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(q[0],q[1]); ctx.stroke();
     }
   }
 }
@@ -866,33 +859,19 @@ function drawObjectiveZone(){
   ctx.save();
   ctx.beginPath();
   for(const t of G.objective){
-    const X=sx(t.x,t.y), Y=sy(t.x,t.y);
+    const lift=liftOf(t.x,t.y), X=sx(t.x,t.y), Y=sy(t.x,t.y)-lift;
     ctx.moveTo(X,Y-TH/2); ctx.lineTo(X+TW/2,Y); ctx.lineTo(X,Y+TH/2); ctx.lineTo(X-TW/2,Y); ctx.closePath();
   }
   ctx.clip();
-  ctx.fillStyle = owner ? col+'77' : 'rgba(245,166,35,.42)';
+  ctx.fillStyle = owner ? col+'66' : 'rgba(245,166,35,.34)';
   ctx.fillRect(0,0,cv.width,cv.height);
-  ctx.strokeStyle='rgba(255,255,255,.30)'; ctx.lineWidth=7;
-  for(let i=-800;i<1400;i+=26){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+560,560); ctx.stroke(); }
+  ctx.strokeStyle='rgba(255,255,255,.26)'; ctx.lineWidth=7;
+  for(let i=-900;i<1500;i+=26){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+560,560); ctx.stroke(); }
   ctx.restore();
-  // bold perimeter in the holder's colour
   ctx.strokeStyle=col; ctx.lineWidth=4; ctx.lineJoin='round';
   ctx.shadowColor=col; ctx.shadowBlur=10+6*Math.sin(performance.now()/420);
   strokeRegionEdges(G.objective.map(t=>({x:t.x,y:t.y})), (x,y)=>isObjective(x,y));
   ctx.shadowBlur=0;
-}
-
-// Strokes only the outer boundary of a set of tiles (the "perimeter outline" look).
-function strokeRegionEdges(tiles,inside){
-  for(const t of tiles){
-    const X=sx(t.x,t.y), Y=sy(t.x,t.y);
-    const N=[X,Y-TH/2], E=[X+TW/2,Y], S=[X,Y+TH/2], W=[X-TW/2,Y];
-    const edges=[[[1,0],E,S],[[-1,0],W,N],[[0,1],S,W],[[0,-1],N,E]];
-    for(const [d,p,q] of edges){
-      if(inside(t.x+d[0],t.y+d[1])) continue;
-      ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(q[0],q[1]); ctx.stroke();
-    }
-  }
 }
 
 function drawReach(){
@@ -902,7 +881,7 @@ function drawReach(){
   if(!land.length) return;
   for(const r of land){
     tilePath(ctx,r.x,r.y,liftOf(r.x,r.y));
-    ctx.fillStyle = (r.cost+w.ap<=u.ap) ? 'rgba(80,170,255,.30)' : 'rgba(80,170,255,.15)';
+    ctx.fillStyle = (r.cost+w.ap<=u.ap && hasAmmo(u)) ? 'rgba(80,170,255,.16)' : 'rgba(80,170,255,.08)';
     ctx.fill();
   }
   const inReach=(x,y)=>{ const r=G.reach.get(key(x,y)); return !!(r&&r.land); };
@@ -921,7 +900,8 @@ function drawPathPreview(){
   ctx.save();
   ctx.strokeStyle='#ffd23f'; ctx.lineWidth=4; ctx.lineJoin='round'; ctx.lineCap='round';
   ctx.setLineDash([9,7]); ctx.lineDashOffset=-performance.now()/50;
-  ctx.beginPath(); ctx.moveTo(sx(G.selected.x,G.selected.y),sy(G.selected.x,G.selected.y)-liftOf(G.selected.x,G.selected.y));
+  ctx.beginPath();
+  ctx.moveTo(sx(G.selected.x,G.selected.y),sy(G.selected.x,G.selected.y)-liftOf(G.selected.x,G.selected.y));
   for(const s of p) ctx.lineTo(sx(s.x,s.y),sy(s.x,s.y)-liftOf(s.x,s.y));
   ctx.stroke(); ctx.setLineDash([]);
   const last=p[p.length-1];
@@ -941,67 +921,209 @@ function drawDeployZone(){
   strokeRegionEdges(tiles,(x,y)=>tiles.some(t=>t.x===x&&t.y===y));
 }
 
-/* ------------------------------ SOLIDS ------------------------------ */
-function drawBox(x,y,h,top,left,right,lift){
-  const X=sx(x,y), Y=sy(x,y)-(lift||0);
-  ctx.lineWidth=2.5; ctx.strokeStyle='#2b1f14'; ctx.lineJoin='round';
-  ctx.beginPath();  // left face
-  ctx.moveTo(X-TW/2,Y); ctx.lineTo(X,Y+TH/2); ctx.lineTo(X,Y+TH/2-h); ctx.lineTo(X-TW/2,Y-h); ctx.closePath();
-  ctx.fillStyle=left; ctx.fill(); ctx.stroke();
-  ctx.beginPath();  // right face
-  ctx.moveTo(X+TW/2,Y); ctx.lineTo(X,Y+TH/2); ctx.lineTo(X,Y+TH/2-h); ctx.lineTo(X+TW/2,Y-h); ctx.closePath();
-  ctx.fillStyle=right; ctx.fill(); ctx.stroke();
-  ctx.beginPath();  // top face
-  ctx.moveTo(X,Y-TH/2-h); ctx.lineTo(X+TW/2,Y-h); ctx.lineTo(X,Y+TH/2-h); ctx.lineTo(X-TW/2,Y-h); ctx.closePath();
-  ctx.fillStyle=top; ctx.fill(); ctx.stroke();
-}
+/* ---------------------------- MATERIALS ----------------------------- */
+const MATS = {
+  path:   { a:'#cfc7b4', b:'#c6bda8', line:'rgba(120,105,80,.30)' },
+  grass:  { a:'#6f9f4a', b:'#679640', line:'rgba(50,80,30,.22)'  },
+  flower: { a:'#5c8a3e', b:'#568237', line:'rgba(45,70,28,.25)'  },
+  dirt:   { a:'#a8926b', b:'#9e8862', line:'rgba(90,70,45,.28)'  },
+};
+const SUN = { dx: 0.55, dy: 0.42 };        // one light direction for the whole board
 
-function drawWallTile(x,y){
-  const p=G.map.wall;
-  drawBox(x,y,wallH(),p.top,p.left,p.right,liftOf(x,y));
-  const X=sx(x,y), Y=sy(x,y), r=hash(x,y);
-  const shade=(r-0.5)*0.16;                    // per-block tint so the ring is not one flat mass
-  const lf=liftOf(x,y);
-  ctx.save();
-  ctx.fillStyle = shade>0 ? `rgba(255,255,255,${shade})` : `rgba(0,0,0,${-shade})`;
-  ctx.beginPath();
-  ctx.moveTo(X,Y-TH/2-wallH()-lf); ctx.lineTo(X+TW/2,Y-wallH()-lf);
-  ctx.lineTo(X,Y+TH/2-wallH()-lf); ctx.lineTo(X-TW/2,Y-wallH()-lf); ctx.closePath(); ctx.fill();
-  ctx.restore();
-  if(r>0.62){                                   // window / vent detail on the street face
-    ctx.fillStyle='rgba(255,255,255,.28)'; ctx.strokeStyle='#2b1f14'; ctx.lineWidth=2;
-    ctx.beginPath();
-    ctx.moveTo(X-20,Y-20); ctx.lineTo(X-6,Y-13); ctx.lineTo(X-6,Y-1); ctx.lineTo(X-20,Y-8);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
+function drawGround(){
+  const order=[];
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) order.push([x,y]);
+  order.sort((a,b)=>(a[0]+a[1])-(b[0]+b[1]));
+  for(const [x,y] of order){
+    const t=G.tiles[y][x];
+    // Ground is drawn under every tile, props included - thin props like railings
+    // and lamp posts do not cover their tile, and skipping left holes in the board.
+    const m=MATS[t.mat]||MATS.path, lift=liftOf(x,y);
+    const X=sx(x,y), Y=sy(x,y)-lift;
+    if(lift>0){                                     // exposed sides of a raised slab
+      const south=tile(x,y+1), east=tile(x+1,y);
+      const dS=south?(t.h-south.h)*HSTEP:lift, dE=east?(t.h-east.h)*HSTEP:lift;
+      if(dS>0){ ctx.fillStyle=shade(m.b,-0.36); ctx.beginPath();
+        ctx.moveTo(X-TW/2,Y); ctx.lineTo(X,Y+TH/2); ctx.lineTo(X,Y+TH/2+dS); ctx.lineTo(X-TW/2,Y+dS);
+        ctx.closePath(); ctx.fill(); }
+      if(dE>0){ ctx.fillStyle=shade(m.b,-0.20); ctx.beginPath();
+        ctx.moveTo(X+TW/2,Y); ctx.lineTo(X,Y+TH/2); ctx.lineTo(X,Y+TH/2+dE); ctx.lineTo(X+TW/2,Y+dE);
+        ctx.closePath(); ctx.fill(); }
+    }
+    tilePath(ctx,x,y,lift);
+    ctx.fillStyle = ((x+y)%2===0) ? m.a : m.b;
+    ctx.fill();
+    ctx.strokeStyle=m.line; ctx.lineWidth=1; ctx.stroke();
+
+    if(t.mat==='grass'||t.mat==='flower'){          // tufts
+      ctx.strokeStyle='rgba(40,70,25,.35)'; ctx.lineWidth=1.5;
+      for(let i=0;i<4;i++){
+        const h1=hash(x*9+i,y*17), h2=hash(y*7+i,x*13);
+        const gx=X+(h1-.5)*TW*0.55, gy=Y+(h2-.5)*TH*0.55;
+        ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+1.5,gy-4); ctx.stroke();
+      }
+    }
+    if(t.mat==='flower'){                            // blooms
+      for(let i=0;i<5;i++){
+        const h1=hash(x*5+i,y*11), h2=hash(y*3+i,x*19);
+        ctx.fillStyle = h1>0.6?'#f2d14e':h1>0.3?'#e8686f':'#e8e2d4';
+        ctx.beginPath();
+        ctx.arc(X+(h1-.5)*TW*0.6, Y+(h2-.5)*TH*0.6, 2.2, 0, 7); ctx.fill();
+      }
+    }
+    if(t.rubble){
+      ctx.fillStyle='rgba(70,55,35,.45)';
+      for(let i=0;i<5;i++){
+        const h1=hash(x*7+i,y*13), h2=hash(y*5+i,x*11);
+        ctx.beginPath();
+        ctx.ellipse(X+(h1-.5)*TW*0.6, Y+(h2-.5)*TH*0.55, 3.5, 2, 0, 0, 7); ctx.fill();
+      }
+    }
   }
 }
 
-function drawCoverTile(x,y){
-  const strength=Math.max.apply(null, tile(x,y).cover);
-  const r = strength>=COVER_HIGH ? 0.5 : hash(x*3+1,y*7+2)*0.45;
-  const lf=liftOf(x,y);
-  if(r<0.45){                                    // stacked supply crates
-    drawBox(x,y,coverH(),'#f0a044','#b96c22','#d98a35',lf);
-    const X=sx(x,y), Y=sy(x,y)-lf;
+/* ------------------------------ PROPS -------------------------------- */
+// One sun for the whole board. Bulky props cast a tile-shaped shadow; thin ones
+// (railings, lamp posts) only darken the ground at their base.
+function propShadow(x,y,h,lift,thin){
+  const X=sx(x,y), Y=sy(x,y)-lift;
+  const ox=SUN.dx*h, oy=SUN.dy*h*0.5;
+  ctx.save();
+  ctx.fillStyle='rgba(40,30,15,.20)';
+  if(thin){
+    ctx.beginPath();
+    ctx.ellipse(X+ox*0.5, Y+oy*0.5, TW*0.30, TH*0.30, 0, 0, 7);
+    ctx.fill();
+  }else{
+    ctx.beginPath();
+    ctx.moveTo(X+ox,Y-TH/2+oy); ctx.lineTo(X+TW/2+ox,Y+oy);
+    ctx.lineTo(X+ox,Y+TH/2+oy); ctx.lineTo(X-TW/2+ox,Y+oy);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawProp(x,y){
+  const t=tile(x,y), lift=liftOf(x,y), X=sx(x,y), Y=sy(x,y)-lift;
+  const p=t.prop, OUT='#241a10';
+  const H = p==='wall'||p==='hedge'||p==='statue' ? wallH()
+          : p==='railing' ? Math.round(TW*0.34)
+          : p==='lamp' ? Math.round(TW*0.7)
+          : coverH();
+  propShadow(x,y,H,lift, p==='railing'||p==='lamp');
+
+  if(p==='wall'){
+    const w=G.map.wall;
+    drawBox(x,y,wallH(),w.top,w.left,w.right,lift);
+    const r=hash(x,y);
+    ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=1;
+    for(let i=1;i<3;i++){                            // coursing
+      ctx.beginPath();
+      ctx.moveTo(X-TW/2,Y-wallH()+i*wallH()/3+TH/4);
+      ctx.lineTo(X,Y-wallH()+i*wallH()/3+TH/2+TH/4); ctx.stroke();
+    }
+    if(r>0.7){ ctx.fillStyle='rgba(255,255,255,.22)';
+      ctx.beginPath(); ctx.moveTo(X-18,Y-20); ctx.lineTo(X-6,Y-13);
+      ctx.lineTo(X-6,Y-2); ctx.lineTo(X-18,Y-9); ctx.closePath(); ctx.fill(); }
+
+  } else if(p==='hedge'){
+    drawBox(x,y,wallH(),'#5f9440','#2f5220','#43702c',lift);
+    ctx.fillStyle='rgba(255,255,255,.14)';           // leafy top clumps
+    for(let i=0;i<9;i++){
+      const h1=hash(x*3+i,y*7), h2=hash(y*5+i,x*11);
+      ctx.beginPath();
+      ctx.arc(X+(h1-.5)*TW*0.8, Y-wallH()+(h2-.5)*TH*0.7, TW*0.09, 0, 7); ctx.fill();
+    }
+    ctx.strokeStyle='rgba(20,45,12,.5)'; ctx.lineWidth=1.5;
+    for(let i=0;i<6;i++){
+      const h1=hash(x*13+i,y*3), h2=hash(y*9+i,x*5);
+      const gx=X+(h1-.5)*TW*0.8, gy=Y-wallH()+(h2-.5)*TH*0.6;
+      ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+2,gy-5); ctx.stroke();
+    }
+
+  } else if(p==='statue'){
+    drawBox(x,y,Math.round(TW*0.22),'#b9b2a2','#6e685c','#8d8779',lift);   // plinth
+    const base=Y-Math.round(TW*0.22);
+    ctx.fillStyle='#7d7a52'; ctx.strokeStyle=OUT; ctx.lineWidth=2.5;
+    roundRect(ctx,X-TW*0.10,base-TW*0.42,TW*0.20,TW*0.34,TW*0.06); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(X,base-TW*0.48,TW*0.10,0,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.18)';
+    roundRect(ctx,X-TW*0.10,base-TW*0.42,TW*0.07,TW*0.34,TW*0.04); ctx.fill();
+
+  } else if(p==='railing'){
+    const rh=Math.round(TW*0.34);
+    ctx.strokeStyle='#2b2f36'; ctx.lineWidth=Math.max(2,TW*0.045); ctx.lineCap='round';
+    for(let i=0;i<=4;i++){                            // posts across the tile
+      const fx=i/4;
+      const px1=X-TW/2+fx*TW/2, py1=Y+ (fx-0.5)*TH ;
+      ctx.beginPath(); ctx.moveTo(px1,py1); ctx.lineTo(px1,py1-rh); ctx.stroke();
+    }
+    ctx.lineWidth=Math.max(2,TW*0.05);
+    ctx.beginPath(); ctx.moveTo(X-TW/2,Y-TH/2-rh+TH/2); ctx.lineTo(X,Y+TH/2-rh); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X-TW/2,Y-rh+2); ctx.lineTo(X,Y+TH/2-rh+2); ctx.stroke();
+
+  } else if(p==='lamp'){
+    const lh=Math.round(TW*0.7);
+    ctx.strokeStyle='#2b2f36'; ctx.lineWidth=Math.max(2.5,TW*0.06);
+    ctx.beginPath(); ctx.moveTo(X,Y); ctx.lineTo(X,Y-lh); ctx.stroke();
+    ctx.fillStyle='#f4e39c'; ctx.strokeStyle=OUT; ctx.lineWidth=2;
+    roundRect(ctx,X-TW*0.09,Y-lh-TW*0.16,TW*0.18,TW*0.18,TW*0.05); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='rgba(244,227,156,.20)';
+    ctx.beginPath(); ctx.arc(X,Y-lh,TW*0.30,0,7); ctx.fill();
+
+  } else if(p==='planter'){
+    drawBox(x,y,coverH(),'#b9b2a2','#6e685c','#8d8779',lift);
+    const top=Y-coverH();
+    ctx.fillStyle='#5c4632';
+    ctx.beginPath(); ctx.ellipse(X,top,TW*0.30,TH*0.30,0,0,7); ctx.fill();
+    for(let i=0;i<7;i++){
+      const h1=hash(x*11+i,y*5), h2=hash(y*13+i,x*7);
+      ctx.fillStyle = h1>0.6?'#f2d14e':h1>0.3?'#e8686f':'#6f9f4a';
+      ctx.beginPath();
+      ctx.arc(X+(h1-.5)*TW*0.5, top+(h2-.5)*TH*0.5, TW*0.05, 0, 7); ctx.fill();
+    }
+
+  } else if(p==='bench'){
+    drawBox(x,y,coverH(),'#a9793f','#5e4020','#875c2c',lift);
+    ctx.strokeStyle='rgba(60,38,16,.6)'; ctx.lineWidth=1.5;
+    for(let i=1;i<3;i++){
+      ctx.beginPath();
+      ctx.moveTo(X-TW/2+i*TW/6,Y-coverH()+i*TH/6);
+      ctx.lineTo(X+i*TW/6,Y-coverH()+TH/2+i*TH/6-TH/2); ctx.stroke();
+    }
+
+  } else {                                            // crate
+    drawBox(x,y,coverH(),'#f0a044','#b96c22','#d98a35',lift);
     ctx.strokeStyle='#7d4413'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.moveTo(X-TW/2+3,Y-coverH()+2); ctx.lineTo(X-3,Y+TH/2-coverH()-2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(X+TW/2-3,Y-coverH()+2); ctx.lineTo(X+3,Y+TH/2-coverH()-2); ctx.stroke();
-  } else if(r<0.75){                             // road barrier
-    drawBox(x,y,coverH(),'#e8e2d4','#8f98a8','#b9c0cc',lf);
-    const X=sx(x,y), Y=sy(x,y)-lf;
-    ctx.fillStyle='#e2543c';
-    for(let i=0;i<3;i++){
-      ctx.save(); ctx.beginPath();
-      ctx.moveTo(X-TW/2+i*16,Y-coverH()+i*8+4); ctx.lineTo(X-TW/2+8+i*16,Y-coverH()+i*8+8);
-      ctx.lineTo(X-TW/2+8+i*16,Y-coverH()+i*8+16); ctx.lineTo(X-TW/2+i*16,Y-coverH()+i*8+12);
-      ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+}
+
+/* Small ground chevrons marking which edges of a tile actually give cover -
+   the same read the original gave the player, and it exposes the edge model. */
+function drawCoverPips(){
+  if(!G.selected||G.busy||G.phase!=='battle') return;
+  const sel=G.selected;
+  const shown=[sel, ...G.units.filter(e=>e.alive&&e.team!==sel.team&&canTarget(sel,e))];
+  const seen=new Set();
+  for(const u of shown){
+    if(!u||!u.alive) continue;
+    const t=tile(u.x,u.y); if(!t) continue;
+    const k=key(u.x,u.y); if(seen.has(k)) continue; seen.add(k);
+    const lift=liftOf(u.x,u.y), X=sx(u.x,u.y), Y=sy(u.x,u.y)-lift;
+    for(let d=0;d<4;d++){
+      const c=t.cover[d]; if(!c) continue;
+      const mid=[[0,-TH/2],[TW/2,0],[0,TH/2],[-TW/2,0]][d];
+      const px=X+mid[0]*0.66, py=Y+mid[1]*0.66;
+      ctx.save();
+      ctx.strokeStyle = c>=COVER_SOLID ? '#7fe07a' : c>=COVER_HIGH ? '#7fd6ff' : '#ffd23f';
+      ctx.lineWidth=3; ctx.lineCap='round';
+      const a=Math.atan2(mid[1],mid[0]);
+      ctx.translate(px,py); ctx.rotate(a); ctx.scale(1,0.55);
+      ctx.beginPath(); ctx.arc(0,0,6,-0.9,0.9); ctx.stroke();
+      ctx.restore();
     }
-  } else {                                       // sandbag stack
-    drawBox(x,y,coverH(),'#cbb27a','#8d7645','#ad9560',lf);
-    const X=sx(x,y), Y=sy(x,y)-lf;
-    ctx.strokeStyle='#6f5a2f'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.ellipse(X-14,Y-coverH()+2,10,5,0.45,0,7); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(X+14,Y-coverH()+2,10,5,-0.45,0,7); ctx.stroke();
   }
 }
 
@@ -1233,10 +1355,7 @@ function render(){
     // one depth-sorted pass over everything that stands on the board
     const solids=[];
     for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-      const t=G.tiles[y][x];
-      if(!t.block) continue;
-      const strength=Math.max(t.cover[0],t.cover[1],t.cover[2],t.cover[3]);
-      solids.push({d:x+y,k:0,x,y,f: strength>=COVER_SOLID ? drawWallTile : drawCoverTile});
+      if(G.tiles[y][x].prop) solids.push({d:x+y,k:0,x,y,f:drawProp});
     }
     for(const u of G.units){
       if(u.alive||u.dying>0){
@@ -1600,9 +1719,10 @@ function objectiveUrgency(team){
   let u=1.2;
   if(them>me) u+=0.55*(them-me);                        // losing the hold race
   if(objectiveOwner()===(team==='blue'?'red':'blue')) u+=0.5;  // they are scoring right now
-  if(G.round>G.roundLimit*0.35) u+=0.4;
-  if(G.round>G.roundLimit*0.6)  u+=0.6;
-  return clamp(u,1.2,3);
+  if(G.round>G.roundLimit*0.3) u+=0.5;
+  if(G.round>G.roundLimit*0.5) u+=0.8;
+  if(G.round>G.roundLimit*0.7) u+=1.2;
+  return clamp(u,1.2,4.2);
 }
 function evalFrom(u,x,y,fn){
   const ox=u.x, oy=u.y;
@@ -2121,24 +2241,32 @@ function updateSquadBar(){
 /* ============================ MAP SELECT ========================== */
 function paintMapPreview(c,m){
   const g=c.getContext('2d');
-  const rows=m.rows, ry=rows.length, rx=rows[0].length;      // the map's own size, not the live one
+  const rows=m.rows, ry=rows.length, rx=rows[0].length;
   const tw=Math.max(6, Math.min(18, Math.floor(2*(c.width-16)/(rx+ry)))), th=Math.round(tw/2);
-  const ox=c.width/2 + (ry-rx)*0, oy=Math.max(10,(c.height-(rx+ry)*th/2)/2);
+  const ox=c.width/2, oy=Math.max(10,(c.height-(rx+ry)*th/2)/2);
+  const COL={ path:'#cfc7b4', grass:'#6f9f4a', flower:'#5c8a3e', dirt:'#a8926b' };
+  const PROP={ wall:m.wall.top, hedge:'#5f9440', statue:'#b9b2a2', railing:'#2b2f36',
+               bench:'#a9793f', crate:'#f0a044', planter:'#b9b2a2', lamp:'#f4e39c' };
   g.fillStyle='#171512'; g.fillRect(0,0,c.width,c.height);
   for(let y=0;y<ry;y++) for(let x=0;x<rx;x++){
-    const ch=rows[y][x];
+    const ch=rows[y][x], d=terrainOf(ch);
     const X=(x-y)*(tw/2)+ox, Y=(x+y)*(th/2)+oy;
-    const lift = ch==='#' ? th : (ch==='o'||ch==='x') ? Math.round(th/2) : 0;
+    const tall = d.prop==='wall'||d.prop==='hedge'||d.prop==='statue';
+    const lift = tall ? th : d.prop ? Math.round(th/2) : 0;
+    let fill = COL[d.mat||'path'];
+    if(d.prop) fill = PROP[d.prop] || fill;
+    if(ch==='*') fill='#f5a623';
+    if(ch==='A') fill='#3d8fd6';
+    if(ch==='B') fill='#e2543c';
+    if(d.h) fill='#ded6c2';
     g.beginPath();
     g.moveTo(X,Y-th/2-lift); g.lineTo(X+tw/2,Y-lift); g.lineTo(X,Y+th/2-lift); g.lineTo(X-tw/2,Y-lift);
-    g.closePath();
-    g.fillStyle = ch==='#' ? m.wall.top : (ch==='o'||ch==='x') ? '#f0a044' : ch==='~' ? '#a89372'
-                : ch==='*' ? '#f5a623' : ch==='A' ? '#3d8fd6' : ch==='B' ? '#e2543c'
-                : (ch>='1'&&ch<='4') ? '#d9cdb2' : m.ground;
-    g.fill();
-    if(lift){ g.fillStyle = ch==='#' ? m.wall.left : '#b96c22';
-      g.beginPath(); g.moveTo(X-tw/2,Y-lift); g.lineTo(X,Y+th/2-lift); g.lineTo(X,Y+th/2); g.lineTo(X-tw/2,Y);
-      g.closePath(); g.fill(); }
+    g.closePath(); g.fillStyle=fill; g.fill();
+    if(lift){
+      g.fillStyle = tall ? (d.prop==='hedge'?'#2f5220':m.wall.left) : 'rgba(0,0,0,.35)';
+      g.beginPath(); g.moveTo(X-tw/2,Y-lift); g.lineTo(X,Y+th/2-lift);
+      g.lineTo(X,Y+th/2); g.lineTo(X-tw/2,Y); g.closePath(); g.fill();
+    }
   }
 }
 function buildMapGrid(onPick){
