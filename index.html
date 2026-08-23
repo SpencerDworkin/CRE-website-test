@@ -94,18 +94,19 @@ h1,h2,h3,.bungee{font-family:'Bungee',Impact,system-ui,sans-serif;font-weight:40
 .card:hover{border-color:#6f6153;background:var(--panel-2)}
 .card.picked{border-color:var(--yellow);background:#3a3122}
 .card.dis{opacity:.42;cursor:not-allowed}
-.card-head{display:flex;align-items:center;gap:10px}
+.card-head{display:flex;align-items:center;gap:10px;padding-right:46px}
 .portrait{width:46px;height:46px;border-radius:8px;flex:none;background:#1c1815;border:2px solid var(--line)}
-.card-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:18px;line-height:1.05}
+.card-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:18px;line-height:1.05;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card-cls{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);font-weight:600}
 .trait{margin-top:9px;font-size:12.5px;color:#cbbfae;line-height:1.45;border-top:1px dashed var(--line);padding-top:8px}
 .trait b{color:var(--yellow);font-weight:600}
 .pts{position:absolute;top:10px;right:10px;background:var(--ink-2);border:2px solid var(--line);
   border-radius:6px;font-family:'Bungee',sans-serif;font-size:12px;padding:2px 7px;color:var(--yellow)}
-.stat-row{display:flex;gap:12px;margin-top:9px;font-size:12px;color:var(--text-dim);font-family:'Barlow Condensed',sans-serif;font-weight:600}
+.stat-row{display:flex;gap:10px;flex-wrap:wrap;row-gap:3px;margin-top:9px;font-size:12px;color:var(--text-dim);font-family:'Barlow Condensed',sans-serif;font-weight:600}
 .stat-row b{color:var(--text)}
 .wsel{margin-top:9px;width:100%;background:var(--ink-2);color:var(--text);border:2px solid var(--line);
-  border-radius:6px;padding:6px 8px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:14px}
+  border-radius:6px;padding:6px 6px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:13px}
 
 /* ---------- squad bar ---------- */
 .squadbar{position:sticky;top:0;z-index:5;background:var(--panel);border:2px solid var(--line);
@@ -496,12 +497,12 @@ const MISSIONS = [
     enemy:[ {cls:'captain',w:'assaultrifle'}, {cls:'commando',w:'shotgun'}, {cls:'commando',w:'mp5k'}, {cls:'agent',w:'pistol'} ] },
   { id:4, name:'The Long Lane', map:'scrap', budget:26, rounds:18,
     brief:'Two marksmen have the yard zeroed. Break line of sight or get picked apart.',
-    enemy:[ {cls:'agent',w:'sniperrifle'}, {cls:'captain',w:'sniperrifle'}, {cls:'medic',w:'pistol'},
-            {cls:'engineer',w:'pistol'}, {cls:'heavy',w:'minigun'} ] },
+    enemy:[ {cls:'agent',w:'sniperrifle'}, {cls:'captain',w:'semiautorifle'}, {cls:'medic',w:'pistol'},
+            {cls:'engineer',w:'pistol'}, {cls:'commando',w:'baseballbat'} ] },
   { id:5, name:'Last Orders', map:'alley', budget:26, rounds:20,
     brief:'Their whole firm, on our street, one last time. Everything you have learned, all at once.',
-    enemy:[ {cls:'captain',w:'assaultrifle'}, {cls:'heavy',w:'minigun'}, {cls:'commando',w:'chainsaw'},
-            {cls:'medic',w:'mp5k'}, {cls:'agent',w:'sniperrifle'} ] },
+    enemy:[ {cls:'captain',w:'assaultrifle'}, {cls:'heavy',w:'lmg'}, {cls:'commando',w:'baseballbat'},
+            {cls:'medic',w:'pistol'}, {cls:'agent',w:'uzi'}, {cls:'commando',w:'knife'} ] },
 ];
 
 /* ------------------------------ STATE ------------------------------ */
@@ -697,6 +698,8 @@ function pathTo(reach,u,tx,ty){
 
 /* ---------------------------- SHOT MATH ----------------------------- */
 function weaponOf(u){ return WEAPONS[u.weapon]; }
+function hasAmmo(u){ const w=weaponOf(u); return !w.uses || u.usesLeft>0; }
+function canFire(u){ return u.ap>=weaponOf(u).ap && hasAmmo(u); }
 function apCost(u){ return weaponOf(u).ap; }
 function canTarget(sh,tg){
   const w=weaponOf(sh);
@@ -1123,7 +1126,7 @@ function drawUnit(u){
 
   // ---- status flags above the head ----
   if(!u.dying){
-    if(u.ap>=weaponOf(u).ap && u.team!==G.turn){
+    if(canFire(u) && u.team!==G.turn){
       ctx.fillStyle='#ffd23f'; ctx.strokeStyle=OUT; ctx.lineWidth=2.5;
       ctx.beginPath();
       ctx.moveTo(0,-76); ctx.lineTo(7,-68); ctx.lineTo(2.5,-68); ctx.lineTo(2.5,-62);
@@ -1155,7 +1158,7 @@ function drawTargets(){
     for(const t of abilityTargets(u)){ tilePath(ctx,t.x,t.y,liftOf(t.x,t.y)); ctx.stroke(); }
     ctx.restore(); return;
   }
-  if(u.ap<weaponOf(u).ap) return;
+  if(!canFire(u)) return;
   for(const e of G.units){
     if(!canTarget(u,e)) continue;
     const info=shotInfo(u,e);
@@ -1284,6 +1287,7 @@ function makeUnit(team,cls,weapon,name,trait){
   if(trait==='fleet') maxAp+=2;
   return { id:uid++, team, cls, weapon, name, trait,
            hp:maxHp, maxHp, ap:maxAp, maxAp,
+           usesLeft: WEAPONS[weapon].uses || 0,
            x:-1, y:-1, fx:null, fy:null, facing: team==='blue'?0:Math.PI,
            alive:true, dying:0, moved:false, smoke:false, suppressed:false, reactions:0, placed:false };
 }
@@ -1336,7 +1340,7 @@ async function doMove(u,path){
 async function reactionCheck(mover){
   const watchers = G.units.filter(w =>
       w.alive && w.team!==mover.team && !w.suppressed &&
-      w.reactions < 1 && w.ap >= weaponOf(w).ap && canTarget(w,mover));
+      w.reactions < 1 && canFire(w) && canTarget(w,mover));
   for(const w of watchers){
     if(!mover.alive) break;
     w.reactions++;
@@ -1349,33 +1353,74 @@ async function reactionCheck(mover){
 async function doShoot(sh,tg,reaction){
   const w=weaponOf(sh);
   sh.ap -= w.ap;
+  if(w.uses) sh.usesLeft = Math.max(0, sh.usesLeft-1);
   faceTo(sh,tg);
   const info=shotInfo(sh,tg);
   let chance=info.chance;
   if(reaction && sh.trait!=='vigilant') chance=clamp(chance-15,5,95);
-  if(sh.team==='blue'){ G.stats.shots++; }
   sfx('shot'); shake=.45;
-  const hit = Math.random()*100 < chance;
-  addTracer(sh,tg,hit);
+  addTracer(sh,tg,true);
   refreshUI();
-  await sleep(200);
-  if(hit){
+  await sleep(190);
+
+  const volley = reaction ? 1 : (w.shots||1);   // ShotsPerAttack
+  let total=0, hits=0;
+  for(let i=0;i<volley;i++){
+    if(sh.team==='blue') G.stats.shots++;
+    if(Math.random()*100 >= chance) continue;
+    hits++;
     let dmg=irnd(info.dmgLo,info.dmgHi);
-    if(reaction) dmg=Math.round(dmg*0.6);      // snap shot off a banked pool
-    tg.hp-=dmg;
+    if(volley>1) dmg=Math.round(dmg/volley);
+    if(reaction) dmg=Math.round(dmg*0.6);       // snap shot off a held pool
+    total+=dmg;
+  }
+
+  if(hits){
+    tg.hp-=total;
     if(sh.team==='blue') G.stats.hits++;
     sfx('hit'); shake=.8;
-    addText(tg.x,tg.y,'-'+dmg, info.cover===0?'#ffd45e':'#ff7a63');
+    addText(tg.x,tg.y,'-'+total, info.cover===0?'#ffd45e':'#ff7a63');
     addBurst(tg.x,tg.y,'#ffb03a');
-    const flank = info.cover===0 ? ' <span class="hit">FLANKED!</span>' : '';
-    log(`<b>${sh.name}</b> hits <b>${tg.name}</b> for ${dmg}.${flank}`,'hit');
-    if(tg.hp<=0) await killUnit(tg,sh);
+    const flank = info.cover===0 && !w.arc ? ' <span class="hit">FLANKED!</span>' : '';
+    const many = volley>1 ? ` (${hits}/${volley})` : '';
+    log(`<b>${sh.name}</b> hits <b>${tg.name}</b> for ${total}.${many}${flank}`,'hit');
+    if(w.drain){ tg.ap=Math.max(0,tg.ap-w.drain); addText(tg.x,tg.y,'-'+w.drain+' AP','#63c2ff'); }
   }else{
     sfx('miss');
     addText(tg.x,tg.y,'MISS','#c9d4dd');
     log(`<b>${sh.name}</b> misses <b>${tg.name}</b>. (${chance}%)`,'miss');
   }
-  await sleep(180);
+
+  // blast radius catches everyone nearby, including your own squad
+  if(w.splash){
+    for(const o of G.units){
+      if(!o.alive||o===tg) continue;
+      const d=Math.max(Math.abs(o.x-tg.x),Math.abs(o.y-tg.y));
+      if(d>w.splash) continue;
+      const sd=Math.round(irnd(w.dmg[0],w.dmg[1])*0.55);
+      o.hp-=sd;
+      addText(o.x,o.y,'-'+sd,'#ff9a4d');
+      log(`<b>${o.name}</b> caught in the blast for ${sd}.`, o.team===sh.team?'miss':'hit');
+      if(o.hp<=0) await killUnit(o,sh);
+    }
+    addBurst(tg.x,tg.y,'#ff7a2f');
+  }
+
+  // knockback shoves the target directly away from the shooter
+  if(w.knock && hits && tg.alive){
+    let kx=Math.sign(tg.x-sh.x), ky=Math.sign(tg.y-sh.y);
+    for(let n=0;n<w.knock;n++){
+      const nx=tg.x+kx, ny=tg.y+ky;
+      const d = kx>0?1 : kx<0?3 : ky>0?2 : 0;
+      if(stepCost(tg.x,tg.y,d)>=99 || unitAt(nx,ny)) break;
+      placeUnit(tg,nx,ny);
+      await sleep(70);
+    }
+    addText(tg.x,tg.y,'KNOCKED','#f2c14e');
+  }
+
+  if(tg.hp<=0 && tg.alive) await killUnit(tg,sh);
+  await sleep(170);
   refreshUI();
 }
 
@@ -1568,7 +1613,7 @@ function aiScore(u,c,foes){
   const w=weaponOf(u), apLeft=u.ap-c.cost;
   return evalFrom(u,c.x,c.y,()=>{
     let bestShot=0, bestTarget=null;
-    if(apLeft>=w.ap){
+    if(apLeft>=w.ap && hasAmmo(u)){
       for(const f of foes){
         if(!canTarget(u,f)) continue;
         const info=shotInfo(u,f);
@@ -1594,7 +1639,7 @@ function aiScore(u,c,foes){
 }
 async function aiShoot(u){
   let guard=0;
-  while(u.alive && !G.over && u.ap>=weaponOf(u).ap && guard++<4){
+  while(u.alive && !G.over && canFire(u) && guard++<4){
     let best=null;
     for(const f of enemiesOf(u)){
       if(!canTarget(u,f)) continue;
@@ -1744,14 +1789,14 @@ function renderUnitPanel(){
       <div class="bar"><span>AP</span><div class="bar-track"><div class="bar-fill en" style="width:${enPct}%"></div></div><span>${u.ap}</span></div>
     </div>
     <div class="trait"><b>${TRAITS[u.trait]?TRAITS[u.trait].name:'—'}:</b> ${TRAITS[u.trait]?TRAITS[u.trait].desc:''}</div>
-    <div class="stat-row"><span>Move <b>1+/tile</b></span><span>Shoot <b>${w.ap} AP</b></span><span>Rng <b>${w.max}</b></span></div>
+    <div class="stat-row"><span>Move <b>1+/tile</b></span><span>Shoot <b>${w.ap} AP</b></span><span>Rng <b>${w.max}</b></span>${w.uses?`<span>Uses <b>${u.usesLeft}/${w.uses}</b></span>`:''}</div>
     <div class="acts">
       <button class="btn sm act ${G.aimMode==='ability'?'on':''}" id="abBtn" ${canAb?'':'disabled'}>
         <span>${A.name}</span><span class="cost">${abilityCost(u)} AP</span></button>
     </div>
     <div class="trait" style="border:0;padding-top:6px">${A.desc}</div>
     <div class="trait" style="border-top:1px dashed var(--line)">
-      Holding <b>${u.ap}</b> AP — ${u.ap>=w.ap?'<span style="color:var(--yellow)">ready to return fire</span>':'not enough to return fire'}.
+      Holding <b>${u.ap}</b> AP — ${canFire(u)?'<span style="color:var(--yellow)">ready to return fire</span>':(hasAmmo(u)?'not enough to return fire':'out of ammunition')}.
     </div>`;
   const ab=$('#abBtn');
   if(ab) ab.onclick=()=>{ G.aimMode = G.aimMode==='ability'?null:'ability'; sfx('ui'); refreshUI(); };
@@ -1809,7 +1854,7 @@ function updateTip(t,e){
   const u=G.selected;
   if(!u||G.busy||G.phase!=='battle'||!inBounds(t.x,t.y)){ tip.style.display='none'; return; }
   const target=unitAt(t.x,t.y);
-  if(target&&target.team!==u.team&&u.team===G.turn&&canTarget(u,target)&&u.ap>=weaponOf(u).ap){
+  if(target&&target.team!==u.team&&u.team===G.turn&&canTarget(u,target)&&canFire(u)){
     const i=shotInfo(u,target);
     const covTxt=i.cover===2?'<span class="g">Full cover</span>':i.cover===1?'<span class="y">Half cover</span>':'<span class="r">Flanked</span>';
     const cls=i.chance>=70?'g':i.chance>=40?'y':'r';
@@ -1846,7 +1891,7 @@ cv.addEventListener('click',async e=>{
   if(clicked&&clicked.team===G.turn){ selectUnit(clicked); sfx('ui'); return; }
   if(!u) return;
   if(clicked&&clicked.team!==u.team){
-    if(canTarget(u,clicked)&&u.ap>=weaponOf(u).ap){
+    if(canTarget(u,clicked)&&canFire(u)){
       G.busy=true; G.reach=null; refreshUI();
       await doShoot(u,clicked,false);
       G.busy=false;
@@ -2026,8 +2071,16 @@ function buildRecruitGrid(){
       <div class="stat-row"><span>HP <b>${C.hp+(r.trait==='tough'?60:0)}</b></span>
         <span>AP <b>${C.ap+(r.trait==='fleet'?2:0)}</b></span>
         <span>Aim <b>${C.aim>=0?'+':''}${C.aim}</b></span></div>
-      <select class="wsel">${Object.entries(WEAPONS).map(([k,w])=>
-        `<option value="${k}" ${k===wep?'selected':''}>${w.name} — ${w.pts} pt</option>`).join('')}</select>
+      <select class="wsel">${Object.entries(WEAPONS).sort((a,b)=>a[1].pts-b[1].pts).map(([k,w])=>
+        `<option value="${k}" ${k===wep?'selected':''}>${w.pts}pt · ${w.name} · ${w.ap}AP${w.uses?` · ${w.uses} uses`:''}</option>`).join('')}</select>
+      <div class="stat-row" style="margin-top:6px">
+        <span>Dmg <b>${WEAPONS[wep].dmg[0]}–${WEAPONS[wep].dmg[1]}</b></span>
+        <span>Rng <b>${WEAPONS[wep].melee?'melee':WEAPONS[wep].max}</b></span>
+        <span>Acc <b>${WEAPONS[wep].acc}</b></span>
+        ${WEAPONS[wep].shots>1?`<span><b>×${WEAPONS[wep].shots}</b></span>`:''}
+        ${WEAPONS[wep].splash?`<span><b>blast</b></span>`:''}
+        ${WEAPONS[wep].knock?`<span><b>knock</b></span>`:''}
+      </div>
       <div class="trait"><b>${TRAITS[r.trait].name}:</b> ${TRAITS[r.trait].desc}</div>
       <button class="btn sm recruit-btn ${picked?'primary':''}" style="width:100%;margin-top:10px">${picked?'In Squad ✓':'Recruit'}</button>`;
     paintPortrait(card.querySelector('canvas'),r.cls,'blue');
