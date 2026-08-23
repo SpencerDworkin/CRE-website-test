@@ -65,8 +65,12 @@ Tuned against self-play, not guesswork: `game.html` exposes `window.__game`, and
 the harness drives the same AI on both sides for a batch of matches inside one
 page load.
 
-Over 40 mirror matches the side that moves first won 24. Matches run about
-8–9 rounds. Getting there took three passes:
+On the shipped build, 14 mirror matches went 8–6 to the side that moves first,
+averaging 6.7 rounds — a small sample, but in line with the 40 matches run on the
+build before the pathing fix, which went 24–16 over about 8–9 rounds. Call it a
+first-mover edge somewhere near 60%, not a decisive one.
+
+Getting there took four passes:
 
 - The first roster had one squad 30% ahead on health alone — it won 6 of 6.
   Hence the identical stat lines.
@@ -79,8 +83,13 @@ Over 40 mirror matches the side that moves first won 24. Matches run about
 - Weapon damage started at roughly double what it is now: every match was over by
   round 6 with both squads dead and the objective never contested.
 
+- `reach()` deleted every tile an ally stood on, so `pathTo` could not rebuild a
+  route that ran past a teammate and returned null — the click did nothing, with
+  no feedback at all. Ally tiles are transit now, flagged so you cannot stop on
+  one.
+
 One thing the numbers say plainly: left to itself the AI fights it out to a wipe,
-so all 40 matches were decided by elimination rather than on the hold. The hold
+so all 54 matches were decided by elimination rather than on the hold. The hold
 condition is there for a player who defends ground instead of trading shots.
 
 ## Where the numbers come from
