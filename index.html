@@ -221,8 +221,8 @@ canvas{display:block;width:100%;height:auto;border:3px solid var(--line);border-
   <!-- ============ TITLE ============ -->
   <section id="screen-title" class="screen on">
     <h1 class="logo">RAD SQUAD<small>TACTICS</small></h1>
-    <p class="tagline">Turn-based squad skirmishes. Spend energy to move, shoot and flank &mdash; but bank
-      what you don't spend, because leftover energy is what shoots back on your opponent's turn.</p>
+    <p class="tagline">Turn-based squad skirmishes. Spend action points to move, shoot and flank &mdash; but hold
+      what you don't spend, because leftover AP is what shoots back on your opponent's turn.</p>
     <div class="title-menu">
       <button class="btn primary" data-go="campaign">Campaign</button>
       <button class="btn" data-go="skirmish">Skirmish vs AI</button>
@@ -332,139 +332,176 @@ canvas{display:block;width:100%;height:auto;border:3px solid var(--line);border-
    RAD SQUAD TACTICS — original turn-based squad tactics engine
    ===================================================================== */
 
-/* ------------------------------- DATA ------------------------------- */
-const COLS = 16, ROWS = 12, TILE = 48;
+/* ------------------------------- DATA -------------------------------
+   Scale and structure follow the original game as recovered from its own
+   code and footage: health in the 187-500 band, a small action-point pool
+   (1-9 observed in play), weapons priced in AP with limited uses, and a
+   tile model carrying per-edge cover and solidity plus elevation.
+   The specific balance constants are ours - the originals lived in
+   VersionedGameData, which was served from Fireteam and is gone.
+   -------------------------------------------------------------------- */
+let COLS = 16, ROWS = 24;              // per-map, set on load
+const TILE = 48;
+
+// cover strength per edge, matching the four-value enum the original stored
+const COVER_NONE = 0, COVER_LOW = 1, COVER_HIGH = 2, COVER_SOLID = 3;
+const COVER_ACC = { 0:0, 1:-20, 2:-35, 3:-55 };   // accuracy modifier vs the shooter
 
 const CLASSES = {
-  commando: { name:'Commando', hp:130, energy:14, aim:5,  color:'#e8563f', blurb:'Front-line rifleman. Pins targets with suppressing fire.',
-              ability:{ id:'suppress', name:'Suppressing Fire', cost:6, range:9, targets:'enemy',
+  commando: { name:'Commando', hp:250, ap:10, aim:5,  color:'#e8563f', blurb:'Front-line rifleman. Pins targets down.',
+              ability:{ id:'suppress', name:'Suppressing Fire', ap:3, range:9, targets:'enemy',
                         desc:'-25 accuracy on the target until their next turn, and they cannot return fire.' } },
-  medic:    { name:'Medic', hp:115, energy:14, aim:0, color:'#7fc45a', blurb:'Keeps the squad upright. Heals from a distance.',
-              ability:{ id:'heal', name:'Field Dressing', cost:6, range:4, targets:'ally',
-                        desc:'Restore 35 HP to an ally within 4 tiles.' } },
-  engineer: { name:'Engineer', hp:145, energy:12, aim:0, color:'#f2c14e', blurb:'Tough and stubborn. Builds cover where there is none.',
-              ability:{ id:'barricade', name:'Deploy Barricade', cost:6, range:1, targets:'tile',
-                        desc:'Drop a sandbag on an adjacent tile: permanent half cover.' } },
-  captain:  { name:'Captain', hp:135, energy:16, aim:8, color:'#4aa3e8', blurb:'Squad leader. Buys an ally an extra move.',
-              ability:{ id:'rally', name:'Rally', cost:5, range:5, targets:'ally',
-                        desc:'Give an ally +5 energy immediately (cannot exceed their maximum).' } },
-  agent:    { name:'Agent', hp:105, energy:18, aim:10, color:'#a879d8', blurb:'Fast and slippery. Vanishes into smoke.',
-              ability:{ id:'smoke', name:'Smoke Screen', cost:4, range:0, targets:'self',
+  medic:    { name:'Medic', hp:200, ap:10, aim:0, color:'#7fc45a', blurb:'Keeps the squad standing.',
+              ability:{ id:'heal', name:'Field Dressing', ap:3, range:4, targets:'ally',
+                        desc:'Restore 90 health to an ally within 4 tiles.' } },
+  engineer: { name:'Engineer', hp:300, ap:8, aim:0, color:'#f2c14e', blurb:'Builds cover where there is none.',
+              ability:{ id:'barricade', name:'Deploy Barricade', ap:3, range:1, targets:'tile',
+                        desc:'Drop hard cover on an adjacent edge.' } },
+  captain:  { name:'Captain', hp:300, ap:10, aim:8, color:'#4aa3e8', blurb:'Buys an ally an extra move.',
+              ability:{ id:'rally', name:'Rally', ap:2, range:5, targets:'ally',
+                        desc:'Give an ally +4 AP immediately (never above their maximum).' } },
+  agent:    { name:'Agent', hp:187, ap:12, aim:10, color:'#a879d8', blurb:'Fast, fragile, slippery.',
+              ability:{ id:'smoke', name:'Smoke Screen', ap:2, range:0, targets:'self',
                         desc:'-25 to all enemy accuracy against this operative until your next turn.' } },
+  heavy:    { name:'Heavy', hp:500, ap:8, aim:-3, color:'#d98a35', blurb:'Slow, enormous, hard to shift.',
+              ability:{ id:'brace', name:'Brace', ap:2, range:0, targets:'self',
+                        desc:'Take 40% less damage until your next turn.' } },
 };
 
+/* Weapons use the original ids. Ranges, damage and AP costs are our calibration. */
 const WEAPONS = {
-  pistol:   { name:'Pistol',        pts:4, dmg:[16,24], acc:78, opt:4,  max:7,  cost:4, falloff:7 },
-  smg:      { name:'SMG',           pts:5, dmg:[20,29], acc:73, opt:4,  max:7,  cost:5, falloff:9 },
-  shotgun:  { name:'Shotgun',       pts:5, dmg:[33,47], acc:84, opt:2,  max:5,  cost:5, falloff:17 },
-  rifle:    { name:'Assault Rifle', pts:6, dmg:[26,35], acc:75, opt:6,  max:10, cost:6, falloff:5 },
-  lmg:      { name:'LMG',           pts:7, dmg:[31,41], acc:67, opt:6,  max:10, cost:7, falloff:4 },
-  chainsaw: { name:'Chainsaw',      pts:7, dmg:[58,78], acc:95, opt:1,  max:1,  cost:6, falloff:99, melee:true },
-  sniper:   { name:'Sniper Rifle',  pts:8, dmg:[45,60], acc:71, opt:10, max:16, cost:8, falloff:3, minPen:true },
+  pistol:        { name:'Pistol',          id:'pistol',        pts:4, dmg:[42,58],   acc:78, opt:4,  max:7,  ap:2, falloff:7,  uses:0 },
+  revolver:      { name:'Revolver',        id:'revolver',      pts:5, dmg:[62,84],   acc:74, opt:4,  max:7,  ap:3, falloff:8,  uses:0 },
+  uzi:           { name:'Uzi',             id:'uzi',           pts:5, dmg:[36,50],   acc:70, opt:3,  max:6,  ap:2, falloff:10, uses:0, shots:2 },
+  mp5k:          { name:'MP5K',            id:'mp5k',          pts:5, dmg:[44,60],   acc:74, opt:4,  max:7,  ap:3, falloff:9,  uses:0 },
+  p90:           { name:'P90',             id:'p90',           pts:6, dmg:[40,56],   acc:76, opt:5,  max:8,  ap:3, falloff:8,  uses:0, shots:2 },
+  assaultrifle:  { name:'Assault Rifle',   id:'assaultrifle',  pts:6, dmg:[58,78],   acc:75, opt:6,  max:10, ap:3, falloff:5,  uses:0 },
+  semiautorifle: { name:'Semi-Auto Rifle', id:'semiautorifle', pts:6, dmg:[66,88],   acc:73, opt:7,  max:11, ap:4, falloff:4,  uses:0 },
+  lmg:           { name:'LMG',             id:'lmg',           pts:7, dmg:[70,94],   acc:66, opt:6,  max:10, ap:4, falloff:4,  uses:0 },
+  minigun:       { name:'Minigun',         id:'minigun',       pts:8, dmg:[86,116],  acc:60, opt:5,  max:9,  ap:5, falloff:5,  uses:0 },
+  shotgun:       { name:'Shotgun',         id:'shotgun',       pts:5, dmg:[78,106],  acc:84, opt:2,  max:5,  ap:3, falloff:17, uses:0 },
+  riotshotgun:   { name:'Riot Shotgun',    id:'riotshotgun',   pts:6, dmg:[90,120],  acc:82, opt:2,  max:5,  ap:4, falloff:18, uses:0, knock:1 },
+  sniperrifle:   { name:'Sniper Rifle',    id:'sniperrifle',   pts:8, dmg:[104,140], acc:71, opt:10, max:16, ap:5, falloff:3,  uses:0, minPen:true },
+  m95:           { name:'M95',             id:'m95',           pts:9, dmg:[130,170], acc:68, opt:12, max:18, ap:6, falloff:2,  uses:0, minPen:true },
+  knife:         { name:'Knife',           id:'knife',         pts:3, dmg:[70,95],   acc:92, opt:1,  max:1,  ap:2, falloff:99, uses:0, melee:true },
+  baseballbat:   { name:'Baseball Bat',    id:'baseballbat',   pts:4, dmg:[86,116],  acc:90, opt:1,  max:1,  ap:2, falloff:99, uses:0, melee:true, knock:1 },
+  katana:        { name:'Katana',          id:'katana',        pts:6, dmg:[120,155], acc:92, opt:1,  max:1,  ap:3, falloff:99, uses:0, melee:true },
+  sledgehammer:  { name:'Sledgehammer',    id:'sledgehammer',  pts:6, dmg:[130,168], acc:86, opt:1,  max:1,  ap:3, falloff:99, uses:0, melee:true, knock:2 },
+  chainsaw:      { name:'Chainsaw',        id:'chainsaw',      pts:7, dmg:[150,195], acc:95, opt:1,  max:1,  ap:4, falloff:99, uses:0, melee:true },
+  clustergrenade:{ name:'Cluster Grenade', id:'clustergrenade',pts:6, dmg:[70,100],  acc:100,opt:6,  max:7,  ap:3, falloff:0,  uses:2, splash:1, arc:true },
+  molotovcocktail:{name:'Molotov',         id:'molotovcocktail',pts:5,dmg:[50,72],   acc:100,opt:5,  max:6,  ap:3, falloff:0,  uses:2, splash:1, arc:true },
+  empgrenade:    { name:'EMP Grenade',     id:'empgrenade',    pts:4, dmg:[20,30],   acc:100,opt:5,  max:6,  ap:2, falloff:0,  uses:2, splash:1, arc:true, drain:4 },
+  rocketlauncher:{ name:'Rocket Launcher', id:'rocketlauncher',pts:9, dmg:[120,160], acc:100,opt:8,  max:10, ap:6, falloff:0,  uses:2, splash:1, arc:true, knock:2 },
 };
 
 const TRAITS = {
   steady:   { name:'Steady Hands',  desc:'+8 accuracy if they have not moved this turn.' },
   brawler:  { name:'Brawler',       desc:'+15 accuracy and +20% damage within 2 tiles.' },
-  medkit:   { name:'Deep Pockets',  desc:'Field Dressing heals 15 more HP.' },
-  tough:    { name:'Thick Skinned', desc:'+15 maximum health.' },
-  sapper:   { name:'Quick Sapper',  desc:'Deploy Barricade costs 2 less energy.' },
+  medkit:   { name:'Deep Pockets',  desc:'Field Dressing heals 40 more health.' },
+  tough:    { name:'Thick Skinned', desc:'+60 maximum health.' },
+  sapper:   { name:'Quick Sapper',  desc:'Deploy Barricade costs 1 less AP.' },
   vigilant: { name:'Vigilant',      desc:'No accuracy penalty on return fire.' },
-  inspire:  { name:'Inspiring',     desc:'Rally grants 3 extra energy.' },
+  inspire:  { name:'Inspiring',     desc:'Rally grants 2 extra AP.' },
   marksman: { name:'Marksman',      desc:'+10 accuracy at 7 tiles or further.' },
   ghost:    { name:'Ghost',         desc:'-10 to all enemy accuracy against them.' },
-  fleet:    { name:'Fleet Footed',  desc:'+3 energy every turn.' },
+  fleet:    { name:'Fleet Footed',  desc:'+2 AP every turn.' },
+  highground:{name:'Mountaineer',   desc:'+8 accuracy when shooting from higher ground.' },
+  bulwark:  { name:'Bulwark',       desc:'Cover is 25% more effective for them.' },
 };
 
 const ROSTER = [
-  { id:'sunny',  name:'Sunny Deakins', cls:'commando', trait:'steady',   fav:'rifle'   },
-  { id:'baz',    name:'Baz Corrigan',  cls:'commando', trait:'brawler',  fav:'shotgun' },
-  { id:'pip',    name:'Nurse Pip',     cls:'medic',    trait:'medkit',   fav:'smg'     },
-  { id:'okoye',  name:'Doc Okoye',     cls:'medic',    trait:'tough',    fav:'pistol'  },
-  { id:'mo',     name:'Spanner Mo',    cls:'engineer', trait:'sapper',   fav:'shotgun' },
-  { id:'kate',   name:'Rivet Kate',    cls:'engineer', trait:'vigilant', fav:'lmg'     },
-  { id:'tosh',   name:'Major Tosh',    cls:'captain',  trait:'inspire',  fav:'rifle'   },
-  { id:'vee',    name:"Cap'n Vee",     cls:'captain',  trait:'marksman', fav:'sniper'  },
-  { id:'nikki',  name:'Shadow Nikki',  cls:'agent',    trait:'ghost',    fav:'sniper'  },
-  { id:'wisp',   name:'The Wisp',      cls:'agent',    trait:'fleet',    fav:'smg'     },
+  { id:'sunny',  name:'Sunny Deakins', cls:'commando', trait:'steady',    fav:'assaultrifle' },
+  { id:'baz',    name:'Baz Corrigan',  cls:'commando', trait:'brawler',   fav:'shotgun' },
+  { id:'pip',    name:'Nurse Pip',     cls:'medic',    trait:'medkit',    fav:'mp5k' },
+  { id:'okoye',  name:'Doc Okoye',     cls:'medic',    trait:'tough',     fav:'pistol' },
+  { id:'mo',     name:'Spanner Mo',    cls:'engineer', trait:'sapper',    fav:'riotshotgun' },
+  { id:'kate',   name:'Rivet Kate',    cls:'engineer', trait:'vigilant',  fav:'lmg' },
+  { id:'tosh',   name:'Major Tosh',    cls:'captain',  trait:'inspire',   fav:'assaultrifle' },
+  { id:'vee',    name:"Cap'n Vee",     cls:'captain',  trait:'marksman',  fav:'sniperrifle' },
+  { id:'nikki',  name:'Shadow Nikki',  cls:'agent',    trait:'ghost',     fav:'sniperrifle' },
+  { id:'wisp',   name:'The Wisp',      cls:'agent',    trait:'fleet',     fav:'uzi' },
+  { id:'brick',  name:'Brick Molloy',  cls:'heavy',    trait:'bulwark',   fav:'minigun' },
+  { id:'tug',    name:'Tugboat',       cls:'heavy',    trait:'highground',fav:'rocketlauncher' },
 ];
 
 const ENEMY_NAMES = ['Scrag','Mullet','Bolts','Tinny','Grinder','Vic Rusk','Pox','Halfpint','Crank','Slick','Bruiser','Nails'];
 
-/* Map legend: # wall (blocks sight+movement, full cover)
-               o low cover (blocks movement, half cover, does not block sight)
-               ~ rubble (passable, costs extra energy)
-               * objective zone
-               A / B deployment zones (walkable floor)                      */
+/* Map authoring. Characters describe a tile; the loader converts them into the
+   per-edge cover/solidity model the engine actually runs on.
+     .  open floor              o  low cover object   (edge cover 1, blocks movement)
+     x  hard cover object       #  solid wall         (edge cover 3, blocks sight)
+     ~  rubble (costs extra)    1-4 raised floor at that height
+     *  objective tile          A / B deployment tiles
+   Original layouts; the engine also loads levels extracted from the real game. */
 const MAPS = [
-  { id:'alley', name:'Chip Shop Alley', blurb:'Tight back-street with two lanes of hard cover flanking the pavement.',
-    ground:'#cdbfa4', accent:'#c2b397', sky:'#7fb5d8',
-    wall:{top:'#e8d9b8',left:'#9d7f5a',right:'#c0a077'},
+  { id:'alley', name:'Chip Shop Alley', turns:5,
+    blurb:'Tight back street. Two lanes of hard cover flank the pavement, with raised kerbs either side of the objective.',
+    ground:'#cdbfa4', accent:'#c2b397', wall:{top:'#e8d9b8',left:'#9d7f5a',right:'#c0a077'},
     rows:[
       '################',
       '#AA..o......oBB#',
-      '#AA..........BB#',
+      '#AA...x..x...BB#',
       '#..###....###..#',
-      '#....o.**.o....#',
-      '#~...o.**.o...~#',
-      '#~...o.**.o...~#',
-      '#....o.**.o....#',
+      '#..1.o.**.o.1..#',
+      '#~.1.o.**.o.1.~#',
+      '#~.1.o.**.o.1.~#',
+      '#..1.o.**.o.1..#',
       '#..###....###..#',
-      '#AA..........BB#',
+      '#AA...x..x...BB#',
       '#AA..o......oBB#',
       '################' ] },
-  { id:'scrap', name:'Scrapyard Sunday', blurb:'Open ground, scattered wrecks and long firing lanes. Snipers eat well here.',
-    ground:'#c9ad7e', accent:'#bea273', sky:'#e0a458',
-    wall:{top:'#d8a25c',left:'#8a5c2f',right:'#ad7440'},
+  { id:'scrap', name:'Scrapyard Sunday', turns:5,
+    blurb:'Open ground and long firing lanes, broken up by wrecks. Raised platforms overlook the middle.',
+    ground:'#c9ad7e', accent:'#bea273', wall:{top:'#d8a25c',left:'#8a5c2f',right:'#ad7440'},
     rows:[
-      '################',
-      '#AA.~....~...BB#',
-      '#A..o..oo..o..B#',
-      '#....#....#....#',
-      '#.o..#.**.#..o.#',
-      '#~...~.**.~...~#',
-      '#~...~.**.~...~#',
-      '#.o..#.**.#..o.#',
-      '#....#....#....#',
-      '#A..o..oo..o..B#',
-      '#AA.~....~...BB#',
-      '################' ] },
-  { id:'carpark', name:'Multi-Storey Mayhem', blurb:'Head-on car park brawl. Big central objective, nowhere to hide crossing it.',
-    ground:'#bcc0c8', accent:'#b1b5be', sky:'#5f7e96',
-    wall:{top:'#d4d8de',left:'#7d838f',right:'#9ba1ad'},
+      '####################',
+      '#AA..~....xx....~..B#',
+      '#AA.o..oo....oo..o.B#',
+      '#....#....##....#...#',
+      '#.o..#.2.**.2.#..o..#',
+      '#~...~.2.**.2.~...~.#',
+      '#~...~.2.**.2.~...~.#',
+      '#.o..#.2.**.2.#..o..#',
+      '#....#....##....#...#',
+      '#AA.o..oo....oo..o.B#',
+      '#AA..~....xx....~..B#',
+      '####################' ] },
+  { id:'carpark', name:'Multi-Storey Mayhem', turns:6,
+    blurb:'Head-on car park brawl across split levels. Big central objective and nowhere to hide crossing it.',
+    ground:'#bcc0c8', accent:'#b1b5be', wall:{top:'#d4d8de',left:'#7d838f',right:'#9ba1ad'},
     rows:[
-      '################',
-      '#AAAAAAAAAAAAAA#',
-      '#..o........o..#',
-      '#.###..~~..###.#',
-      '#......**......#',
-      '#~..o.****.o..~#',
-      '#~..o.****.o..~#',
-      '#......**......#',
-      '#.###..~~..###.#',
-      '#..o........o..#',
-      '#BBBBBBBBBBBBBB#',
-      '################' ] },
+      '##################',
+      '#AAAAAAAAAAAAAAAA#',
+      '#..o..x......x..o#',
+      '#.###..~~~~..###.#',
+      '#..2....**....2..#',
+      '#~.2.o.****.o.2.~#',
+      '#~.2.o.****.o.2.~#',
+      '#..2....**....2..#',
+      '#.###..~~~~..###.#',
+      '#..o..x......x..o#',
+      '#BBBBBBBBBBBBBBBB#',
+      '##################' ] },
 ];
 
 const MISSIONS = [
-  { id:1, name:'Turf War', map:'alley', budget:14, hold:5, rounds:16,
+  { id:1, name:'Turf War', map:'alley', budget:14, rounds:16,
     brief:'Three of theirs are squatting on our corner. Take the pavement and hold it.',
-    enemy:[ {cls:'commando',w:'rifle'}, {cls:'commando',w:'pistol'}, {cls:'engineer',w:'pistol'} ] },
-  { id:2, name:'Bin Day', map:'scrap', budget:20, hold:5, rounds:16,
+    enemy:[ {cls:'commando',w:'assaultrifle'}, {cls:'commando',w:'pistol'}, {cls:'engineer',w:'pistol'} ] },
+  { id:2, name:'Bin Day', map:'scrap', budget:20, rounds:16,
     brief:'They brought a medic to the scrapyard. Break the patch-up chain before it breaks you.',
-    enemy:[ {cls:'commando',w:'rifle'}, {cls:'medic',w:'pistol'}, {cls:'agent',w:'smg'}, {cls:'engineer',w:'shotgun'} ] },
-  { id:3, name:'Level Three', map:'carpark', budget:20, hold:5, rounds:16,
+    enemy:[ {cls:'commando',w:'assaultrifle'}, {cls:'medic',w:'pistol'}, {cls:'agent',w:'uzi'}, {cls:'engineer',w:'shotgun'} ] },
+  { id:3, name:'Level Three', map:'carpark', budget:20, rounds:16,
     brief:'Straight up the middle of the car park. No flanks, no clever stuff. Just nerve.',
-    enemy:[ {cls:'captain',w:'rifle'}, {cls:'commando',w:'shotgun'}, {cls:'commando',w:'smg'}, {cls:'agent',w:'pistol'} ] },
-  { id:4, name:'The Long Lane', map:'scrap', budget:26, hold:5, rounds:18,
+    enemy:[ {cls:'captain',w:'assaultrifle'}, {cls:'commando',w:'shotgun'}, {cls:'commando',w:'mp5k'}, {cls:'agent',w:'pistol'} ] },
+  { id:4, name:'The Long Lane', map:'scrap', budget:26, rounds:18,
     brief:'Two marksmen have the yard zeroed. Break line of sight or get picked apart.',
-    enemy:[ {cls:'agent',w:'sniper'}, {cls:'captain',w:'sniper'}, {cls:'medic',w:'pistol'},
-            {cls:'engineer',w:'pistol'} ] },
-  { id:5, name:'Last Orders', map:'alley', budget:26, hold:5, rounds:20,
+    enemy:[ {cls:'agent',w:'sniperrifle'}, {cls:'captain',w:'sniperrifle'}, {cls:'medic',w:'pistol'},
+            {cls:'engineer',w:'pistol'}, {cls:'heavy',w:'minigun'} ] },
+  { id:5, name:'Last Orders', map:'alley', budget:26, rounds:20,
     brief:'Their whole firm, on our street, one last time. Everything you have learned, all at once.',
-    enemy:[ {cls:'captain',w:'rifle'}, {cls:'commando',w:'shotgun'}, {cls:'commando',w:'chainsaw'},
-            {cls:'medic',w:'pistol'}, {cls:'agent',w:'smg'} ] },
+    enemy:[ {cls:'captain',w:'assaultrifle'}, {cls:'heavy',w:'minigun'}, {cls:'commando',w:'chainsaw'},
+            {cls:'medic',w:'mp5k'}, {cls:'agent',w:'sniperrifle'} ] },
 ];
 
 /* ------------------------------ STATE ------------------------------ */
@@ -492,139 +529,212 @@ const key=(x,y)=>y*COLS+x;
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-/* ------------------------------ GRID ------------------------------- */
+/* ------------------------------ GRID -------------------------------
+   Tiles carry per-edge cover and solidity plus elevation, the model the
+   original used. Edge index: 0=N(-y) 1=E(+x) 2=S(+y) 3=W(-x).
+   -------------------------------------------------------------------- */
+const OPP = [2,3,0,1];
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];
+
+function blankTile(){ return { cover:[0,0,0,0], solid:[0,0,0,0], vis:0, h:0, obj:0, spawn:0, rubble:0 }; }
+
+// Build the edge model from an authored ASCII map.
 function loadMap(mapDef){
   G.map = mapDef;
-  G.grid = mapDef.rows.map(r=>r.split(''));
+  const rows = mapDef.rows;
+  ROWS = rows.length; COLS = rows[0].length;
+  const T = [];
+  for(let y=0;y<ROWS;y++){ T.push([]); for(let x=0;x<COLS;x++) T[y].push(blankTile()); }
+  G.tiles = T;
   G.objective = [];
-  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) if(G.grid[y][x]==='*') G.objective.push({x,y});
-}
-function inBounds(x,y){ return x>=0&&y>=0&&x<COLS&&y<ROWS; }
-function tileAt(x,y){ return inBounds(x,y) ? G.grid[y][x] : '#'; }
-function isSolid(x,y){ const c=tileAt(x,y); return c==='#'||c==='o'; }
-function blocksSight(x,y){ return tileAt(x,y)==='#'; }
-function isFloor(x,y){ const c=tileAt(x,y); return c==='.'||c==='~'||c==='*'||c==='A'||c==='B'; }
-function stepCost(x,y){ return tileAt(x,y)==='~' ? 3 : 2; }
-function unitAt(x,y){ return G.units.find(u=>u.alive&&u.x===x&&u.y===y) || null; }
-function isObjective(x,y){ return tileAt(x,y)==='*'; }
-function spawnTiles(team){
-  const ch = team==='blue' ? 'A' : 'B', out=[];
-  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) if(G.grid[y][x]===ch) out.push({x,y});
-  return out;
+  G.spawnsA = []; G.spawnsB = [];
+
+  // pass 1: per-tile properties
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    const c = rows[y][x], t = T[y][x];
+    if(c>='1'&&c<='4') t.h = +c;
+    else if(c==='~') t.rubble = 1;
+    else if(c==='*'){ t.obj = 1; G.objective.push({x,y}); }
+    else if(c==='A'){ t.spawn = 1; G.spawnsA.push({x,y}); }
+    else if(c==='B'){ t.spawn = 2; G.spawnsB.push({x,y}); }
+    t.blockChar = c;
+  }
+  // pass 2: turn blocking objects into edge cover on both sides
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    const c = rows[y][x];
+    let strength = 0, blocksSight = 0;
+    if(c==='#'){ strength = COVER_SOLID; blocksSight = 1; }
+    else if(c==='x'){ strength = COVER_HIGH; }
+    else if(c==='o'){ strength = COVER_LOW; }
+    if(!strength) continue;
+    const t = T[y][x];
+    t.vis = blocksSight; t.block = 1;
+    for(let d=0;d<4;d++){
+      const nx = x+DIRS[d][0], ny = y+DIRS[d][1];
+      t.cover[d] = strength; t.solid[d] = 1;
+      if(inBounds(nx,ny)){ T[ny][nx].cover[OPP[d]] = strength; T[ny][nx].solid[OPP[d]] = 1; }
+    }
+  }
+  // pass 3: elevation changes cost movement but do not block
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    const t = T[y][x];
+    for(let d=0;d<4;d++){
+      const nx=x+DIRS[d][0], ny=y+DIRS[d][1];
+      if(!inBounds(nx,ny)) continue;
+      t.step = t.step||[0,0,0,0];
+      t.step[d] = Math.abs(T[ny][nx].h - t.h);
+    }
+  }
+  G.holdTarget = mapDef.turns || 5;
+  fitBoard();
 }
 
-/* -------------------------- LINE OF SIGHT -------------------------- */
+function inBounds(x,y){ return x>=0&&y>=0&&x<COLS&&y<ROWS; }
+function tile(x,y){ return inBounds(x,y) ? G.tiles[y][x] : null; }
+function isBlocked(x,y){ const t=tile(x,y); return !t || !!t.block; }
+function isFloor(x,y){ const t=tile(x,y); return !!t && !t.block; }
+function blocksSight(x,y){ const t=tile(x,y); return !t || !!t.vis; }
+function heightAt(x,y){ const t=tile(x,y); return t?t.h:0; }
+function isObjective(x,y){ const t=tile(x,y); return !!t && !!t.obj; }
+function unitAt(x,y){ return G.units.find(u=>u.alive&&u.x===x&&u.y===y) || null; }
+function spawnTiles(team){ return team==='blue' ? G.spawnsA : G.spawnsB; }
+
+// movement cost of stepping from (x,y) in direction d
+function stepCost(x,y,d){
+  const t = tile(x,y); if(!t) return 99;
+  if(t.solid[d]) return 99;                       // a solid edge cannot be crossed
+  const nx=x+DIRS[d][0], ny=y+DIRS[d][1];
+  const n = tile(nx,ny); if(!n || n.block) return 99;
+  let c = 1;                                       // 1 AP per tile
+  if(n.rubble) c += 1;
+  c += Math.min(2, Math.abs(n.h - t.h));           // climbing costs extra
+  return c;
+}
+
+/* -------------------------- LINE OF SIGHT --------------------------- */
 function hasLOS(ax,ay,bx,by){
-  // supercover-ish Bresenham between tile centres; walls block, low cover does not
+  if(ax===bx&&ay===by) return true;
   let x0=ax, y0=ay;
   const dx=Math.abs(bx-ax), dy=Math.abs(by-ay);
   const sx=ax<bx?1:-1, sy=ay<by?1:-1;
   let err=dx-dy, guard=0;
-  while(guard++<200){
-    if(x0===bx&&y0===by) return true;
-    const e2=2*err;
-    let nx=x0, ny=y0;
+  const hi = Math.max(heightAt(ax,ay), heightAt(bx,by));
+  while(guard++<400){
+    const e2=2*err; let nx=x0, ny=y0;
     if(e2>-dy){ err-=dy; nx+=sx; }
     if(e2<dx){ err+=dx; ny+=sy; }
-    // diagonal squeeze: if both orthogonal neighbours are walls, sight is blocked
     if(nx!==x0&&ny!==y0&&blocksSight(nx,y0)&&blocksSight(x0,ny)) return false;
     x0=nx; y0=ny;
     if(x0===bx&&y0===by) return true;
-    if(blocksSight(x0,y0)) return false;
+    // a sight-blocking tile stops the ray unless both ends stand above it
+    if(blocksSight(x0,y0) && heightAt(x0,y0) >= hi) return false;
+    if(blocksSight(x0,y0) && !(hi > heightAt(x0,y0))) return false;
   }
   return false;
 }
 
-/* ----------------------------- COVER ------------------------------- */
-// 0 = exposed (flanked), 1 = half cover, 2 = full cover — relative to the shooter
+/* ----------------------------- COVER --------------------------------
+   Cover belongs to the edge a shot crosses, so what matters is the side
+   of the target facing the shooter, not what sits in a neighbouring tile. */
 function coverValue(tx,ty,fromX,fromY){
-  const dx=Math.sign(fromX-tx), dy=Math.sign(fromY-ty);
-  const cand=[];
-  if(dx) cand.push([tx+dx,ty]);
-  if(dy) cand.push([tx,ty+dy]);
-  let best=0;
-  for(const [cx,cy] of cand){
-    const c=tileAt(cx,cy);
-    if(c==='#') best=Math.max(best,2);
-    else if(c==='o') best=Math.max(best,1);
-  }
+  const t = tile(tx,ty); if(!t) return 0;
+  const dx = fromX-tx, dy = fromY-ty;
+  let best = 0;
+  if(dy<0) best = Math.max(best, t.cover[0]);
+  if(dx>0) best = Math.max(best, t.cover[1]);
+  if(dy>0) best = Math.max(best, t.cover[2]);
+  if(dx<0) best = Math.max(best, t.cover[3]);
+  // shooting from higher ground reduces the value of cover
+  const drop = heightAt(fromX,fromY) - t.h;
+  if(drop >= 1 && best > 0) best -= 1;
   return best;
 }
-// best cover a tile offers against a set of threats — used by the AI and the move overlay
 function coverRating(x,y,threats){
   if(!threats.length) return 0;
-  let sum=0;
-  for(const t of threats) sum += coverValue(x,y,t.x,t.y);
-  return sum/threats.length;
+  let s=0; for(const t of threats) s += coverValue(x,y,t.x,t.y);
+  return s/threats.length;
 }
 
-/* --------------------------- PATHFINDING --------------------------- */
+/* --------------------------- PATHFINDING ---------------------------- */
 function computeReach(u){
-  // Dijkstra over energy cost; returns Map(key -> {cost, prev})
   const seen=new Map();
-  seen.set(key(u.x,u.y),{cost:0,prev:null,x:u.x,y:u.y});
+  seen.set(key(u.x,u.y),{cost:0,prev:null,x:u.x,y:u.y,land:false});
   const q=[{x:u.x,y:u.y,cost:0}];
   while(q.length){
     q.sort((a,b)=>a.cost-b.cost);
     const cur=q.shift();
     const rec=seen.get(key(cur.x,cur.y));
     if(rec.cost<cur.cost) continue;
-    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
-      const nx=cur.x+dx, ny=cur.y+dy;
-      if(!inBounds(nx,ny)||!isFloor(nx,ny)) continue;
+    for(let d=0;d<4;d++){
+      const sc=stepCost(cur.x,cur.y,d);
+      if(sc>=99) continue;
+      const nx=cur.x+DIRS[d][0], ny=cur.y+DIRS[d][1];
       const occ=unitAt(nx,ny);
-      if(occ&&occ!==u&&occ.team!==u.team) continue;   // enemies block; squadmates can be squeezed past
-      const nc=cur.cost+stepCost(nx,ny);
-      if(nc>u.energy) continue;
+      if(occ&&occ!==u&&occ.team!==u.team) continue;   // enemies block, squadmates do not
+      const nc=cur.cost+sc;
+      if(nc>u.ap) continue;
       const k=key(nx,ny), old=seen.get(k);
       if(!old||nc<old.cost){
-        seen.set(k,{cost:nc,prev:key(cur.x,cur.y),x:nx,y:ny});
+        seen.set(k,{cost:nc,prev:key(cur.x,cur.y),x:nx,y:ny,land:true});
         q.push({x:nx,y:ny,cost:nc});
       }
     }
   }
   seen.delete(key(u.x,u.y));
-  // Squadmates can be moved through but not stopped on, so keep those tiles in the
-  // graph for path reconstruction and mark them as invalid destinations.
   for(const [,r] of seen) r.land = !unitAt(r.x,r.y);
   return seen;
 }
 function pathTo(reach,u,tx,ty){
-  const out=[]; let k=key(tx,ty);
-  const start=key(u.x,u.y);
+  const out=[]; let k=key(tx,ty); const start=key(u.x,u.y);
   while(k!==null&&k!==start){
     const r=reach.get(k); if(!r) return null;
-    out.unshift({x:r.x,y:r.y}); k=r.prev;
+    out.unshift({x:r.x,y:r.y,cum:r.cost}); k=r.prev;
   }
+  let prev=0;
+  for(const s of out){ s.cost=s.cum-prev; prev=s.cum; }   // per-step AP
   return out;
 }
 
-/* ---------------------------- SHOT MATH ---------------------------- */
+/* ---------------------------- SHOT MATH ----------------------------- */
 function weaponOf(u){ return WEAPONS[u.weapon]; }
+function apCost(u){ return weaponOf(u).ap; }
 function canTarget(sh,tg){
   const w=weaponOf(sh);
   if(!tg.alive||tg.team===sh.team) return false;
   const d=dist(sh,tg);
   if(d>w.max+0.001) return false;
+  if(w.melee && d>1.5) return false;
+  if(w.arc) return hasLOS(sh.x,sh.y,tg.x,tg.y) || d<=w.max*0.6;   // lobbed shots clear low cover
   return hasLOS(sh.x,sh.y,tg.x,tg.y);
 }
 function shotInfo(sh,tg){
-  const w=weaponOf(sh), d=dist(sh,tg), cov=coverValue(tg.x,tg.y,sh.x,sh.y);
+  const w=weaponOf(sh), d=dist(sh,tg);
+  const cov = w.arc ? Math.max(0, coverValue(tg.x,tg.y,sh.x,sh.y)-1) : coverValue(tg.x,tg.y,sh.x,sh.y);
   let acc = w.acc + CLASSES[sh.cls].aim;
   acc -= Math.max(0,d-w.opt)*w.falloff;
   if(w.minPen && d<3) acc -= 22;
-  acc -= cov===2?40:cov===1?20:0;
+  let covMod = COVER_ACC[cov] || 0;
+  if(tg.trait==='bulwark') covMod *= 1.25;
+  acc += covMod;
+  const hDiff = heightAt(sh.x,sh.y) - heightAt(tg.x,tg.y);
+  if(hDiff>0) acc += 6;                                  // shooting downhill
+  else if(hDiff<0) acc -= 6;
   if(sh.trait==='steady'  && !sh.moved) acc += 8;
   if(sh.trait==='brawler' && d<=2)      acc += 15;
   if(sh.trait==='marksman'&& d>=7)      acc += 10;
+  if(sh.trait==='highground' && hDiff>0) acc += 8;
   if(tg.trait==='ghost') acc -= 10;
   if(tg.smoke)      acc -= 25;
   if(sh.suppressed) acc -= 25;
-  let dmgMul = 1;
-  if(cov===0) dmgMul *= 1.5;                                  // flanked
-  if(sh.trait==='brawler'&&d<=2) dmgMul *= 1.2;
-  return { chance:clamp(Math.round(acc),5,95), cover:cov, dist:d,
-           dmgLo:Math.round(w.dmg[0]*dmgMul), dmgHi:Math.round(w.dmg[1]*dmgMul), dmgMul };
+  let mul = 1;
+  // Lobbed weapons already bypass a level of cover, so they do not also
+  // collect the flanking bonus - that stacked into one-shot kills.
+  if(cov===0 && !w.arc) mul *= 1.5;                      // flanked
+  if(sh.trait==='brawler'&&d<=2) mul *= 1.2;
+  if(tg.braced) mul *= 0.6;
+  const shots = w.shots || 1;
+  return { chance:clamp(Math.round(acc),5,95), cover:cov, dist:d, shots,
+           dmgLo:Math.round(w.dmg[0]*mul), dmgHi:Math.round(w.dmg[1]*mul), hDiff };
 }
 
 /* ============================== RENDER ==============================
@@ -636,8 +746,20 @@ const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 let shake = 0;
 
-const TW = 64, TH = 32, OX = 386, OY = 68;   // diamond width/height, board origin
-const WALL_H = 36, COVER_H = 15;
+let TW = 64, TH = 32, OX = 386, OY = 68;     // diamond width/height, board origin
+// Levels vary from 14x16 to 32x26, so the camera is fitted to each one.
+function fitBoard(){
+  const span = COLS + ROWS, marginX = 26, topPad = 96, botPad = 16;
+  let tw = Math.min(64, 2*(cv.width - marginX*2)/span, 4*(cv.height - topPad - botPad)/span);
+  tw = Math.max(22, Math.floor(tw));
+  TW = tw; TH = Math.round(tw/2);
+  const boardW = span*TW/2;
+  OX = Math.round((cv.width - boardW)/2 + ROWS*TW/2);
+  const boardH = (span-1)*TH/2;
+  OY = Math.round(Math.max(topPad, (cv.height - boardH)/2 + 30));
+}
+function wallH(){ return Math.round(TW*0.56); }
+function coverH(){ return Math.round(TW*0.24); }
 
 function sx(x,y){ return (x-y)*(TW/2)+OX; }
 function sy(x,y){ return (x+y)*(TH/2)+OY; }
@@ -647,7 +769,8 @@ function tileFromScreen(pxx,pyy){
   return { x:Math.round((a+b)/2), y:Math.round((b-a)/2) };
 }
 function unitX(u){ return sx(u.fx!=null?u.fx:u.x, u.fy!=null?u.fy:u.y); }
-function unitY(u){ return sy(u.fx!=null?u.fx:u.x, u.fy!=null?u.fy:u.y); }
+function unitY(u){ const fx=u.fx!=null?u.fx:u.x, fy=u.fy!=null?u.fy:u.y;
+  return sy(fx,fy) - liftOf(Math.round(fx),Math.round(fy)); }
 function unitDepth(u){ return (u.fx!=null?u.fx:u.x)+(u.fy!=null?u.fy:u.y); }
 
 function tilePath(g,x,y,lift){
@@ -681,17 +804,48 @@ function drawBoardShadow(){
   boardOutline(ctx); ctx.fillStyle='#000'; ctx.fill();
   ctx.restore();
 }
+const HSTEP = 11;                      // screen pixels per elevation level
+function shade(hex,amt){               // lighten (+) or darken (-) a #rrggbb
+  const n=parseInt(hex.slice(1),16);
+  let r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+  const f=v=> Math.max(0,Math.min(255, Math.round(amt<0 ? v*(1+amt) : v+(255-v)*amt)));
+  return `rgb(${f(r)},${f(g)},${f(b)})`;
+}
+function liftOf(x,y){ const t=tile(x,y); return t ? t.h*HSTEP : 0; }
 function drawGround(){
   const m=G.map;
-  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-    const c=G.grid[y][x];
-    if(c==='#') continue;
-    tilePath(ctx,x,y);
+  const order=[];
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) order.push([x,y]);
+  order.sort((a,b)=>(a[0]+a[1])-(b[0]+b[1]));
+  for(const [x,y] of order){
+    const t=G.tiles[y][x];
+    if(t.block) continue;
+    const lift=liftOf(x,y);
+    if(lift>0){                                  // exposed side of a raised platform
+      const X=sx(x,y), Y=sy(x,y);
+      const south=tile(x,y+1), east=tile(x+1,y);
+      const dropS=south?(t.h-south.h)*HSTEP:lift, dropE=east?(t.h-east.h)*HSTEP:lift;
+      if(dropS>0){
+        ctx.fillStyle=shade(m.accent,-0.34);
+        ctx.beginPath();
+        ctx.moveTo(X-TW/2,Y-lift); ctx.lineTo(X,Y+TH/2-lift);
+        ctx.lineTo(X,Y+TH/2-lift+dropS); ctx.lineTo(X-TW/2,Y-lift+dropS);
+        ctx.closePath(); ctx.fill();
+      }
+      if(dropE>0){
+        ctx.fillStyle=shade(m.accent,-0.18);
+        ctx.beginPath();
+        ctx.moveTo(X+TW/2,Y-lift); ctx.lineTo(X,Y+TH/2-lift);
+        ctx.lineTo(X,Y+TH/2-lift+dropE); ctx.lineTo(X+TW/2,Y-lift+dropE);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    tilePath(ctx,x,y,lift);
     ctx.fillStyle = ((x+y)%2===0) ? m.ground : m.accent;
     ctx.fill();
     ctx.strokeStyle='rgba(90,70,45,.22)'; ctx.lineWidth=1; ctx.stroke();
-    if(c==='~'){
-      const X=sx(x,y), Y=sy(x,y);
+    if(t.rubble){
+      const X=sx(x,y), Y=sy(x,y)-lift;
       ctx.fillStyle='rgba(70,55,35,.45)';
       for(let i=0;i<5;i++){
         const h1=hash(x*7+i,y*13), h2=hash(y*5+i,x*11);
@@ -744,8 +898,8 @@ function drawReach(){
   const land=[...G.reach.values()].filter(r=>r.land);
   if(!land.length) return;
   for(const r of land){
-    tilePath(ctx,r.x,r.y);
-    ctx.fillStyle = (r.cost+w.cost<=u.energy) ? 'rgba(80,170,255,.30)' : 'rgba(80,170,255,.15)';
+    tilePath(ctx,r.x,r.y,liftOf(r.x,r.y));
+    ctx.fillStyle = (r.cost+w.ap<=u.ap) ? 'rgba(80,170,255,.30)' : 'rgba(80,170,255,.15)';
     ctx.fill();
   }
   const inReach=(x,y)=>{ const r=G.reach.get(key(x,y)); return !!(r&&r.land); };
@@ -764,11 +918,11 @@ function drawPathPreview(){
   ctx.save();
   ctx.strokeStyle='#ffd23f'; ctx.lineWidth=4; ctx.lineJoin='round'; ctx.lineCap='round';
   ctx.setLineDash([9,7]); ctx.lineDashOffset=-performance.now()/50;
-  ctx.beginPath(); ctx.moveTo(sx(G.selected.x,G.selected.y),sy(G.selected.x,G.selected.y));
-  for(const s of p) ctx.lineTo(sx(s.x,s.y),sy(s.x,s.y));
+  ctx.beginPath(); ctx.moveTo(sx(G.selected.x,G.selected.y),sy(G.selected.x,G.selected.y)-liftOf(G.selected.x,G.selected.y));
+  for(const s of p) ctx.lineTo(sx(s.x,s.y),sy(s.x,s.y)-liftOf(s.x,s.y));
   ctx.stroke(); ctx.setLineDash([]);
   const last=p[p.length-1];
-  tilePath(ctx,last.x,last.y);
+  tilePath(ctx,last.x,last.y,liftOf(last.x,last.y));
   ctx.fillStyle='rgba(255,210,63,.5)'; ctx.fill();
   ctx.strokeStyle='#ffd23f'; ctx.lineWidth=3; ctx.stroke();
   ctx.restore();
@@ -779,7 +933,7 @@ function drawDeployZone(){
   const tiles=spawnTiles(G.deployTeam).filter(t=>!unitAt(t.x,t.y));
   const col = G.deployTeam==='blue' ? '80,170,255' : '235,90,65';
   const pulse=0.22+0.14*Math.sin(performance.now()/300);
-  for(const t of tiles){ tilePath(ctx,t.x,t.y); ctx.fillStyle=`rgba(${col},${pulse})`; ctx.fill(); }
+  for(const t of tiles){ tilePath(ctx,t.x,t.y,liftOf(t.x,t.y)); ctx.fillStyle=`rgba(${col},${pulse})`; ctx.fill(); }
   ctx.strokeStyle=`rgba(${col},.85)`; ctx.lineWidth=3; ctx.lineJoin='round';
   strokeRegionEdges(tiles,(x,y)=>tiles.some(t=>t.x===x&&t.y===y));
 }
@@ -801,14 +955,15 @@ function drawBox(x,y,h,top,left,right,lift){
 
 function drawWallTile(x,y){
   const p=G.map.wall;
-  drawBox(x,y,WALL_H,p.top,p.left,p.right);
+  drawBox(x,y,wallH(),p.top,p.left,p.right,liftOf(x,y));
   const X=sx(x,y), Y=sy(x,y), r=hash(x,y);
   const shade=(r-0.5)*0.16;                    // per-block tint so the ring is not one flat mass
+  const lf=liftOf(x,y);
   ctx.save();
   ctx.fillStyle = shade>0 ? `rgba(255,255,255,${shade})` : `rgba(0,0,0,${-shade})`;
   ctx.beginPath();
-  ctx.moveTo(X,Y-TH/2-WALL_H); ctx.lineTo(X+TW/2,Y-WALL_H);
-  ctx.lineTo(X,Y+TH/2-WALL_H); ctx.lineTo(X-TW/2,Y-WALL_H); ctx.closePath(); ctx.fill();
+  ctx.moveTo(X,Y-TH/2-wallH()-lf); ctx.lineTo(X+TW/2,Y-wallH()-lf);
+  ctx.lineTo(X,Y+TH/2-wallH()-lf); ctx.lineTo(X-TW/2,Y-wallH()-lf); ctx.closePath(); ctx.fill();
   ctx.restore();
   if(r>0.62){                                   // window / vent detail on the street face
     ctx.fillStyle='rgba(255,255,255,.28)'; ctx.strokeStyle='#2b1f14'; ctx.lineWidth=2;
@@ -819,29 +974,31 @@ function drawWallTile(x,y){
 }
 
 function drawCoverTile(x,y){
-  const r=hash(x*3+1,y*7+2);
+  const strength=Math.max.apply(null, tile(x,y).cover);
+  const r = strength>=COVER_HIGH ? 0.5 : hash(x*3+1,y*7+2)*0.45;
+  const lf=liftOf(x,y);
   if(r<0.45){                                    // stacked supply crates
-    drawBox(x,y,COVER_H,'#f0a044','#b96c22','#d98a35');
-    const X=sx(x,y), Y=sy(x,y);
+    drawBox(x,y,coverH(),'#f0a044','#b96c22','#d98a35',lf);
+    const X=sx(x,y), Y=sy(x,y)-lf;
     ctx.strokeStyle='#7d4413'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(X-TW/2+3,Y-COVER_H+2); ctx.lineTo(X-3,Y+TH/2-COVER_H-2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(X+TW/2-3,Y-COVER_H+2); ctx.lineTo(X+3,Y+TH/2-COVER_H-2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X-TW/2+3,Y-coverH()+2); ctx.lineTo(X-3,Y+TH/2-coverH()-2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X+TW/2-3,Y-coverH()+2); ctx.lineTo(X+3,Y+TH/2-coverH()-2); ctx.stroke();
   } else if(r<0.75){                             // road barrier
-    drawBox(x,y,COVER_H,'#e8e2d4','#8f98a8','#b9c0cc');
-    const X=sx(x,y), Y=sy(x,y);
+    drawBox(x,y,coverH(),'#e8e2d4','#8f98a8','#b9c0cc',lf);
+    const X=sx(x,y), Y=sy(x,y)-lf;
     ctx.fillStyle='#e2543c';
     for(let i=0;i<3;i++){
       ctx.save(); ctx.beginPath();
-      ctx.moveTo(X-TW/2+i*16,Y-COVER_H+i*8+4); ctx.lineTo(X-TW/2+8+i*16,Y-COVER_H+i*8+8);
-      ctx.lineTo(X-TW/2+8+i*16,Y-COVER_H+i*8+16); ctx.lineTo(X-TW/2+i*16,Y-COVER_H+i*8+12);
+      ctx.moveTo(X-TW/2+i*16,Y-coverH()+i*8+4); ctx.lineTo(X-TW/2+8+i*16,Y-coverH()+i*8+8);
+      ctx.lineTo(X-TW/2+8+i*16,Y-coverH()+i*8+16); ctx.lineTo(X-TW/2+i*16,Y-coverH()+i*8+12);
       ctx.closePath(); ctx.fill(); ctx.restore();
     }
   } else {                                       // sandbag stack
-    drawBox(x,y,COVER_H,'#cbb27a','#8d7645','#ad9560');
-    const X=sx(x,y), Y=sy(x,y);
+    drawBox(x,y,coverH(),'#cbb27a','#8d7645','#ad9560',lf);
+    const X=sx(x,y), Y=sy(x,y)-lf;
     ctx.strokeStyle='#6f5a2f'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.ellipse(X-14,Y-COVER_H+2,10,5,0.45,0,7); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(X+14,Y-COVER_H+2,10,5,-0.45,0,7); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(X-14,Y-coverH()+2,10,5,0.45,0,7); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(X+14,Y-coverH()+2,10,5,-0.45,0,7); ctx.stroke();
   }
 }
 
@@ -966,7 +1123,7 @@ function drawUnit(u){
 
   // ---- status flags above the head ----
   if(!u.dying){
-    if(u.energy>=weaponOf(u).cost && u.team!==G.turn){
+    if(u.ap>=weaponOf(u).ap && u.team!==G.turn){
       ctx.fillStyle='#ffd23f'; ctx.strokeStyle=OUT; ctx.lineWidth=2.5;
       ctx.beginPath();
       ctx.moveTo(0,-76); ctx.lineTo(7,-68); ctx.lineTo(2.5,-68); ctx.lineTo(2.5,-62);
@@ -979,7 +1136,7 @@ function drawUnit(u){
       ctx.fillStyle='#ff4d34'; ctx.fillText('PINNED',0,-68);
     }
     if(u.team===G.turn&&G.phase==='battle'){
-      const pips=Math.floor(u.energy/2), maxP=Math.ceil(u.maxEnergy/2);
+      const pips=u.ap, maxP=u.maxAp;
       for(let i=0;i<maxP;i++){
         ctx.fillStyle = i<pips ? '#63c2ff' : 'rgba(20,14,8,.45)';
         ctx.fillRect(-maxP*2.6+i*5.2,-70,3.6,4);
@@ -995,10 +1152,10 @@ function drawTargets(){
   const u=G.selected;
   if(G.aimMode==='ability'){
     ctx.save(); ctx.strokeStyle='#c08bff'; ctx.lineWidth=3.5; ctx.setLineDash([7,5]);
-    for(const t of abilityTargets(u)){ tilePath(ctx,t.x,t.y); ctx.stroke(); }
+    for(const t of abilityTargets(u)){ tilePath(ctx,t.x,t.y,liftOf(t.x,t.y)); ctx.stroke(); }
     ctx.restore(); return;
   }
-  if(u.energy<weaponOf(u).cost) return;
+  if(u.ap<weaponOf(u).ap) return;
   for(const e of G.units){
     if(!canTarget(u,e)) continue;
     const info=shotInfo(u,e);
@@ -1018,13 +1175,13 @@ function drawTargets(){
 }
 
 /* -------------------------------- FX -------------------------------- */
-function fxPos(t){ return t.fx!=null ? [unitX(t),unitY(t)-30] : [sx(t.x,t.y),sy(t.x,t.y)-14]; }
+function fxPos(t){ return t.fx!=null ? [unitX(t),unitY(t)-30] : [sx(t.x,t.y),sy(t.x,t.y)-14-liftOf(t.x,t.y)]; }
 function addTracer(a,b,hit){
   const [x1,y1]=fxPos(a), [x2,y2]=fxPos(b);
   G.fx.push({t:'tracer',x1,y1,x2,y2,life:1,hit});
 }
-function addText(x,y,txt,col){ G.fx.push({t:'text',x:sx(x,y),y:sy(x,y)-52,txt,col,life:1}); }
-function addBurst(x,y,col){ G.fx.push({t:'burst',x:sx(x,y),y:sy(x,y)-16,col,life:1}); }
+function addText(x,y,txt,col){ G.fx.push({t:'text',x:sx(x,y),y:sy(x,y)-52-liftOf(x,y),txt,col,life:1}); }
+function addBurst(x,y,col){ G.fx.push({t:'burst',x:sx(x,y),y:sy(x,y)-16-liftOf(x,y),col,life:1}); }
 
 function drawFX(dt){
   for(const f of G.fx){
@@ -1062,7 +1219,7 @@ function render(){
   bg.addColorStop(0,'#221e19'); bg.addColorStop(1,'#0e0c0a');
   ctx.fillStyle=bg; ctx.fillRect(0,0,cv.width,cv.height);
   if(shake>0){ shake-=dt*4; ctx.translate(rnd(-shake,shake)*7,rnd(-shake,shake)*7); }
-  if(G.grid){
+  if(G.tiles){
     drawBoardShadow();
     drawGround();
     drawObjectiveZone();
@@ -1073,9 +1230,10 @@ function render(){
     // one depth-sorted pass over everything that stands on the board
     const solids=[];
     for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-      const c=G.grid[y][x];
-      if(c==='#') solids.push({d:x+y,k:0,x,y,f:drawWallTile});
-      else if(c==='o') solids.push({d:x+y,k:0,x,y,f:drawCoverTile});
+      const t=G.tiles[y][x];
+      if(!t.block) continue;
+      const strength=Math.max(t.cover[0],t.cover[1],t.cover[2],t.cover[3]);
+      solids.push({d:x+y,k:0,x,y,f: strength>=COVER_SOLID ? drawWallTile : drawCoverTile});
     }
     for(const u of G.units){
       if(u.alive||u.dying>0){
@@ -1121,11 +1279,11 @@ let uid=1;
 function makeUnit(team,cls,weapon,name,trait){
   const C=CLASSES[cls];
   let maxHp=C.hp;
-  if(trait==='tough') maxHp+=15;
-  let maxEnergy=C.energy;
-  if(trait==='fleet') maxEnergy+=3;
+  if(trait==='tough') maxHp+=60;
+  let maxAp=C.ap;
+  if(trait==='fleet') maxAp+=2;
   return { id:uid++, team, cls, weapon, name, trait,
-           hp:maxHp, maxHp, energy:maxEnergy, maxEnergy,
+           hp:maxHp, maxHp, ap:maxAp, maxAp,
            x:-1, y:-1, fx:null, fy:null, facing: team==='blue'?0:Math.PI,
            alive:true, dying:0, moved:false, smoke:false, suppressed:false, reactions:0, placed:false };
 }
@@ -1161,7 +1319,7 @@ async function doMove(u,path){
   G.busy=true; G.reach=null; G.aimMode=null;
   for(const step of path){
     if(!u.alive) break;
-    u.energy -= stepCost(step.x,step.y);
+    u.ap -= step.cost;
     u.moved = true;
     sfx('move');
     await animStep(u,step.x,step.y);
@@ -1174,11 +1332,11 @@ async function doMove(u,path){
   checkWin();
 }
 
-// Any opposing operative with energy banked takes a shot of opportunity.
+// Any opposing operative holding enough AP takes a shot of opportunity.
 async function reactionCheck(mover){
   const watchers = G.units.filter(w =>
       w.alive && w.team!==mover.team && !w.suppressed &&
-      w.reactions < 1 && w.energy >= weaponOf(w).cost && canTarget(w,mover));
+      w.reactions < 1 && w.ap >= weaponOf(w).ap && canTarget(w,mover));
   for(const w of watchers){
     if(!mover.alive) break;
     w.reactions++;
@@ -1190,7 +1348,7 @@ async function reactionCheck(mover){
 
 async function doShoot(sh,tg,reaction){
   const w=weaponOf(sh);
-  sh.energy -= w.cost;
+  sh.ap -= w.ap;
   faceTo(sh,tg);
   const info=shotInfo(sh,tg);
   let chance=info.chance;
@@ -1234,12 +1392,12 @@ async function killUnit(u,by){
 
 function abilityTargets(u){
   const A=CLASSES[u.cls].ability, out=[];
-  if(u.energy < abilityCost(u)) return out;
+  if(u.ap < abilityCost(u)) return out;
   if(A.targets==='self') return [{x:u.x,y:u.y,unit:u}];
   if(A.targets==='tile'){
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
-      const nx=u.x+dx, ny=u.y+dy, c=tileAt(nx,ny);
-      if((c==='.'||c==='A'||c==='B') && !unitAt(nx,ny)) out.push({x:nx,y:ny});
+      const nx=u.x+dx, ny=u.y+dy;
+      if(isFloor(nx,ny) && !isObjective(nx,ny) && !unitAt(nx,ny)) out.push({x:nx,y:ny});
     }
     return out;
   }
@@ -1247,7 +1405,7 @@ function abilityTargets(u){
     if(!t.alive) continue;
     if(A.targets==='ally'  && (t.team!==u.team)) continue;
     if(A.targets==='enemy' && (t.team===u.team)) continue;
-    if(A.id==='rally' && (t===u || t.energy>=t.maxEnergy)) continue;
+    if(A.id==='rally' && (t===u || t.ap>=t.maxAp)) continue;
     if(A.id==='heal'  && t.hp>=t.maxHp) continue;
     if(dist(u,t)>A.range+0.001) continue;
     if(!hasLOS(u.x,u.y,t.x,t.y)) continue;
@@ -1257,39 +1415,47 @@ function abilityTargets(u){
 }
 function abilityCost(u){
   const A=CLASSES[u.cls].ability;
-  let c=A.cost;
-  if(A.id==='barricade' && u.trait==='sapper') c-=2;
+  let c=A.ap;
+  if(A.id==='barricade' && u.trait==='sapper') c-=1;
   return c;
 }
 
 async function doAbility(u,target){
   const A=CLASSES[u.cls].ability;
   G.busy=true; G.aimMode=null; G.reach=null;
-  u.energy-=abilityCost(u);
+  u.ap-=abilityCost(u);
   if(target.unit) faceTo(u,target.unit); else faceTo(u,target);
   if(A.id==='heal'){
-    const amt = 35 + (u.trait==='medkit'?15:0);
+    const amt = 90 + (u.trait==='medkit'?40:0);
     const t=target.unit;
     const healed=Math.min(amt,t.maxHp-t.hp);
     t.hp+=healed;
     sfx('heal'); addText(t.x,t.y,'+'+healed,'#7fc45a'); addBurst(t.x,t.y,'#7fc45a');
     log(`<b>${u.name}</b> patches up <b>${t.name}</b> for ${healed}.`,'sys');
   } else if(A.id==='rally'){
-    const amt = 5 + (u.trait==='inspire'?3:0);
+    const amt = 4 + (u.trait==='inspire'?2:0);
     const t=target.unit;
-    const given=Math.min(amt,t.maxEnergy-t.energy);
-    t.energy+=given;
-    sfx('ui'); addText(t.x,t.y,'+'+given+' EN','#4aa3e8'); addBurst(t.x,t.y,'#4aa3e8');
-    log(`<b>${u.name}</b> rallies <b>${t.name}</b> (+${given} energy).`,'sys');
+    const given=Math.min(amt,t.maxAp-t.ap);
+    t.ap+=given;
+    sfx('ui'); addText(t.x,t.y,'+'+given+' AP','#4aa3e8'); addBurst(t.x,t.y,'#4aa3e8');
+    log(`<b>${u.name}</b> rallies <b>${t.name}</b> (+${given} AP).`,'sys');
   } else if(A.id==='suppress'){
     const t=target.unit;
     t.suppressed=true;
     sfx('shot'); shake=.6; addTracer(u,t,false); addText(t.x,t.y,'PINNED','#e8563f');
     log(`<b>${u.name}</b> pins <b>${t.name}</b> down.`,'sys');
   } else if(A.id==='barricade'){
-    G.grid[target.y][target.x]='o';
+    const bt=tile(target.x,target.y);
+    if(bt){ for(let d=0;d<4;d++){ bt.cover[d]=Math.max(bt.cover[d],COVER_HIGH); bt.solid[d]=1; }
+      bt.block=1;
+      for(let d=0;d<4;d++){ const nb=tile(target.x+DIRS[d][0],target.y+DIRS[d][1]);
+        if(nb){ nb.cover[OPP[d]]=Math.max(nb.cover[OPP[d]],COVER_HIGH); nb.solid[OPP[d]]=1; } } }
     sfx('build'); addBurst(target.x,target.y,'#f2c14e');
     log(`<b>${u.name}</b> drops a barricade.`,'sys');
+  } else if(A.id==='brace'){
+    u.braced=true;
+    sfx('build'); addBurst(u.x,u.y,'#d98a35');
+    log(`<b>${u.name}</b> braces.`,'sys');
   } else if(A.id==='smoke'){
     u.smoke=true;
     sfx('build'); addBurst(u.x,u.y,'#c8c8d2');
@@ -1309,13 +1475,14 @@ function beginTurn(team){
   for(const u of G.units){
     u.reactions=0;
     if(u.team===team){
-      u.energy=u.maxEnergy;
+      u.ap=u.maxAp;
       // Second-mover compensation: the team that does not open the match starts
       // its first turn with a little extra in the tank.
-      if(G.round===1 && team!=='blue') u.energy+=4;
+      if(G.round===1 && team!=='blue') u.ap+=2;
       u.moved=false;
       u.suppressed=false;
       u.smoke=false;
+      u.braced=false;
     }
   }
   G.selected=null; G.aimMode=null; G.reach=null;
@@ -1398,10 +1565,10 @@ function evalFrom(u,x,y,fn){
   try{ return fn(); } finally { u.x=ox; u.y=oy; }
 }
 function aiScore(u,c,foes){
-  const w=weaponOf(u), energyLeft=u.energy-c.cost;
+  const w=weaponOf(u), apLeft=u.ap-c.cost;
   return evalFrom(u,c.x,c.y,()=>{
     let bestShot=0, bestTarget=null;
-    if(energyLeft>=w.cost){
+    if(apLeft>=w.ap){
       for(const f of foes){
         if(!canTarget(u,f)) continue;
         const info=shotInfo(u,f);
@@ -1427,7 +1594,7 @@ function aiScore(u,c,foes){
 }
 async function aiShoot(u){
   let guard=0;
-  while(u.alive && !G.over && u.energy>=weaponOf(u).cost && guard++<4){
+  while(u.alive && !G.over && u.ap>=weaponOf(u).ap && guard++<4){
     let best=null;
     for(const f of enemiesOf(u)){
       if(!canTarget(u,f)) continue;
@@ -1439,7 +1606,7 @@ async function aiShoot(u){
     }
     if(!best) return;
     const finisher = (best.info.dmgLo>=best.f.hp);
-    if(best.info.chance<25 && !finisher) return;   // bank the energy for return fire instead
+    if(best.info.chance<25 && !finisher) return;   // hold the AP for return fire instead
     await doShoot(u,best.f,false);
     await sleep(150);
   }
@@ -1475,10 +1642,10 @@ async function aiTakeTurn(u){
 
   // Spend anything left over on a worthwhile ability, otherwise bank it for return fire.
   const A=CLASSES[u.cls].ability, tgts=abilityTargets(u);
-  if(u.energy>=abilityCost(u) && tgts.length){
+  if(u.ap>=abilityCost(u) && tgts.length){
     if(A.id==='rally'){
-      const t=tgts.map(t=>t.unit).filter(t=>t&&t.energy<t.maxEnergy)
-                  .sort((a,b)=>a.energy-b.energy)[0];
+      const t=tgts.map(t=>t.unit).filter(t=>t&&t.ap<t.maxAp)
+                  .sort((a,b)=>a.ap-b.ap)[0];
       if(t){ await doAbility(u,{x:t.x,y:t.y,unit:t}); await aiShoot(t); }
     } else if(A.id==='suppress'){
       const t=tgts.map(t=>t.unit).filter(Boolean)
@@ -1565,26 +1732,26 @@ function renderUnitPanel(){
   const p=$('#unitPanel'), u=G.selected;
   if(!u){ p.innerHTML='<h4>Operative</h4><div style="color:var(--text-dim);font-size:13px">Select one of your operatives.</div>'; return; }
   const C=CLASSES[u.cls], w=weaponOf(u), A=C.ability;
-  const hpPct=clamp(u.hp/u.maxHp*100,0,100), enPct=clamp(u.energy/u.maxEnergy*100,0,100);
+  const hpPct=clamp(u.hp/u.maxHp*100,0,100), enPct=clamp(u.ap/u.maxAp*100,0,100);
   const mine = u.team===G.turn && isHuman(u.team) && G.phase==='battle' && !G.busy && u.alive;
-  const canAb = mine && u.energy>=abilityCost(u) && abilityTargets(u).length>0;
+  const canAb = mine && u.ap>=abilityCost(u) && abilityTargets(u).length>0;
   p.innerHTML=`
     <h4>Operative</h4>
     <div class="unit-name" style="color:${C.color}">${u.name}</div>
     <div class="card-cls">${C.name} &middot; ${w.name}</div>
     <div class="bars">
       <div class="bar"><span>HP</span><div class="bar-track"><div class="bar-fill hp ${hpPct<35?'low':''}" style="width:${hpPct}%"></div></div><span>${Math.max(0,u.hp)}</span></div>
-      <div class="bar"><span>EN</span><div class="bar-track"><div class="bar-fill en" style="width:${enPct}%"></div></div><span>${u.energy}</span></div>
+      <div class="bar"><span>AP</span><div class="bar-track"><div class="bar-fill en" style="width:${enPct}%"></div></div><span>${u.ap}</span></div>
     </div>
     <div class="trait"><b>${TRAITS[u.trait]?TRAITS[u.trait].name:'—'}:</b> ${TRAITS[u.trait]?TRAITS[u.trait].desc:''}</div>
-    <div class="stat-row"><span>Move <b>2/tile</b></span><span>Shoot <b>${w.cost}</b></span><span>Rng <b>${w.max}</b></span></div>
+    <div class="stat-row"><span>Move <b>1+/tile</b></span><span>Shoot <b>${w.ap} AP</b></span><span>Rng <b>${w.max}</b></span></div>
     <div class="acts">
       <button class="btn sm act ${G.aimMode==='ability'?'on':''}" id="abBtn" ${canAb?'':'disabled'}>
-        <span>${A.name}</span><span class="cost">${abilityCost(u)} EN</span></button>
+        <span>${A.name}</span><span class="cost">${abilityCost(u)} AP</span></button>
     </div>
     <div class="trait" style="border:0;padding-top:6px">${A.desc}</div>
     <div class="trait" style="border-top:1px dashed var(--line)">
-      Banking <b>${u.energy}</b> energy — ${u.energy>=w.cost?'<span style="color:var(--yellow)">ready to return fire</span>':'not enough to return fire'}.
+      Holding <b>${u.ap}</b> AP — ${u.ap>=w.ap?'<span style="color:var(--yellow)">ready to return fire</span>':'not enough to return fire'}.
     </div>`;
   const ab=$('#abBtn');
   if(ab) ab.onclick=()=>{ G.aimMode = G.aimMode==='ability'?null:'ability'; sfx('ui'); refreshUI(); };
@@ -1600,7 +1767,7 @@ function renderRoster(){
       row.innerHTML=`<span class="dot" style="background:${CLASSES[u.cls].color}"></span>
         <span style="flex:0 0 82px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.name}</span>
         <span class="hpmini"><i style="width:${hp}%;background:${hp>50?'#7fc45a':hp>25?'#f2c14e':'#e8563f'}"></i></span>
-        <span class="en">${u.alive?u.energy:'—'}</span>`;
+        <span class="en">${u.alive?u.ap:'—'}</span>`;
       if(u.alive) row.onclick=()=>{ selectUnit(u); sfx('ui'); };
       box.appendChild(row);
     }
@@ -1618,7 +1785,7 @@ function renderHint(){
   if(!isHuman(G.turn)){ h.textContent='Enemy is thinking…'; return; }
   if(G.aimMode==='ability'){ h.innerHTML='<b>Choose a target</b> for the ability, or press the button again to cancel.'; return; }
   const u=G.selected;
-  h.innerHTML = u ? 'Tap a blue tile to move · tap a marked enemy to shoot · unspent energy becomes return fire.'
+  h.innerHTML = u ? 'Tap a blue tile to move · tap a marked enemy to shoot · unspent AP becomes return fire.'
                   : 'Tap one of your operatives to select.';
 }
 
@@ -1642,17 +1809,17 @@ function updateTip(t,e){
   const u=G.selected;
   if(!u||G.busy||G.phase!=='battle'||!inBounds(t.x,t.y)){ tip.style.display='none'; return; }
   const target=unitAt(t.x,t.y);
-  if(target&&target.team!==u.team&&u.team===G.turn&&canTarget(u,target)&&u.energy>=weaponOf(u).cost){
+  if(target&&target.team!==u.team&&u.team===G.turn&&canTarget(u,target)&&u.ap>=weaponOf(u).ap){
     const i=shotInfo(u,target);
     const covTxt=i.cover===2?'<span class="g">Full cover</span>':i.cover===1?'<span class="y">Half cover</span>':'<span class="r">Flanked</span>';
     const cls=i.chance>=70?'g':i.chance>=40?'y':'r';
     tip.innerHTML=`<span class="big ${cls}">${i.chance}%</span>${target.name} · ${covTxt}<br>Damage ${i.dmgLo}–${i.dmgHi} · ${i.dist.toFixed(1)} tiles`;
   } else if(target){
-    tip.innerHTML=`<span class="big">${target.name}</span>${CLASSES[target.cls].name} · ${WEAPONS[target.weapon].name}<br>HP ${Math.max(0,target.hp)}/${target.maxHp} · EN ${target.energy}`;
+    tip.innerHTML=`<span class="big">${target.name}</span>${CLASSES[target.cls].name} · ${WEAPONS[target.weapon].name}<br>HP ${Math.max(0,target.hp)}/${target.maxHp} · AP ${target.ap}`;
   } else if(G.reach&&G.reach.get(key(t.x,t.y))&&G.reach.get(key(t.x,t.y)).land){
     const r=G.reach.get(key(t.x,t.y));
-    const left=u.energy-r.cost, w=weaponOf(u);
-    tip.innerHTML=`<span class="big">${r.cost} EN</span>${left} left${left>=w.cost?' · can still shoot':' · no shot left'}`;
+    const left=u.ap-r.cost, w=weaponOf(u);
+    tip.innerHTML=`<span class="big">${r.cost} AP</span>${left} left${left>=w.ap?' · can still shoot':' · no shot left'}`;
   } else { tip.style.display='none'; return; }
   tip.style.display='block';
   const wrap=$('#canvasWrap').getBoundingClientRect();
@@ -1679,7 +1846,7 @@ cv.addEventListener('click',async e=>{
   if(clicked&&clicked.team===G.turn){ selectUnit(clicked); sfx('ui'); return; }
   if(!u) return;
   if(clicked&&clicked.team!==u.team){
-    if(canTarget(u,clicked)&&u.energy>=weaponOf(u).cost){
+    if(canTarget(u,clicked)&&u.ap>=weaponOf(u).ap){
       G.busy=true; G.reach=null; refreshUI();
       await doShoot(u,clicked,false);
       G.busy=false;
@@ -1738,7 +1905,8 @@ function autoDeploy(team){
 /* ========================== BATTLE SETUP ========================== */
 function traitForClass(cls){
   const m={commando:['steady','brawler'],medic:['medkit','tough'],engineer:['sapper','vigilant'],
-           captain:['inspire','marksman'],agent:['ghost','fleet']}[cls];
+           captain:['inspire','marksman'],agent:['ghost','fleet'],
+           heavy:['bulwark','highground','tough']}[cls] || ['steady'];
   return m[irnd(0,m.length-1)];
 }
 function randomEnemySquad(budget){
@@ -1855,8 +2023,8 @@ function buildRecruitGrid(){
         <canvas class="portrait" width="46" height="46"></canvas>
         <div><div class="card-name">${r.name}</div><div class="card-cls" style="color:${C.color}">${C.name}</div></div>
       </div>
-      <div class="stat-row"><span>HP <b>${C.hp+(r.trait==='tough'?15:0)}</b></span>
-        <span>EN <b>${C.energy+(r.trait==='fleet'?3:0)}</b></span>
+      <div class="stat-row"><span>HP <b>${C.hp+(r.trait==='tough'?60:0)}</b></span>
+        <span>AP <b>${C.ap+(r.trait==='fleet'?2:0)}</b></span>
         <span>Aim <b>${C.aim>=0?'+':''}${C.aim}</b></span></div>
       <select class="wsel">${Object.entries(WEAPONS).map(([k,w])=>
         `<option value="${k}" ${k===wep?'selected':''}>${w.name} — ${w.pts} pt</option>`).join('')}</select>
@@ -1899,17 +2067,21 @@ function updateSquadBar(){
 
 /* ============================ MAP SELECT ========================== */
 function paintMapPreview(c,m){
-  const g=c.getContext('2d'), tw=16, th=8, ox=c.width/2, oy=14;
+  const g=c.getContext('2d');
+  const rows=m.rows, ry=rows.length, rx=rows[0].length;      // the map's own size, not the live one
+  const tw=Math.max(6, Math.min(18, Math.floor(2*(c.width-16)/(rx+ry)))), th=Math.round(tw/2);
+  const ox=c.width/2 + (ry-rx)*0, oy=Math.max(10,(c.height-(rx+ry)*th/2)/2);
   g.fillStyle='#171512'; g.fillRect(0,0,c.width,c.height);
-  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-    const ch=m.rows[y][x];
+  for(let y=0;y<ry;y++) for(let x=0;x<rx;x++){
+    const ch=rows[y][x];
     const X=(x-y)*(tw/2)+ox, Y=(x+y)*(th/2)+oy;
-    const lift = ch==='#' ? 9 : ch==='o' ? 4 : 0;
+    const lift = ch==='#' ? th : (ch==='o'||ch==='x') ? Math.round(th/2) : 0;
     g.beginPath();
     g.moveTo(X,Y-th/2-lift); g.lineTo(X+tw/2,Y-lift); g.lineTo(X,Y+th/2-lift); g.lineTo(X-tw/2,Y-lift);
     g.closePath();
-    g.fillStyle = ch==='#' ? m.wall.top : ch==='o' ? '#f0a044' : ch==='~' ? '#a89372'
-                : ch==='*' ? '#f5a623' : ch==='A' ? '#3d8fd6' : ch==='B' ? '#e2543c' : m.ground;
+    g.fillStyle = ch==='#' ? m.wall.top : (ch==='o'||ch==='x') ? '#f0a044' : ch==='~' ? '#a89372'
+                : ch==='*' ? '#f5a623' : ch==='A' ? '#3d8fd6' : ch==='B' ? '#e2543c'
+                : (ch>='1'&&ch<='4') ? '#d9cdb2' : m.ground;
     g.fill();
     if(lift){ g.fillStyle = ch==='#' ? m.wall.left : '#b96c22';
       g.beginPath(); g.moveTo(X-tw/2,Y-lift); g.lineTo(X,Y+th/2-lift); g.lineTo(X,Y+th/2); g.lineTo(X-tw/2,Y);
@@ -1956,43 +2128,54 @@ function buildMissionList(){
 /* ============================== RULES ============================ */
 $('#rulesBody').innerHTML=`
 <h3>The idea</h3>
-<p>Two squads, one objective, one grid. Every operative gets a pool of <b>energy</b> each turn and spends it
-on everything they do. The twist: whatever they <i>don't</i> spend is what they shoot with on the enemy's turn.
-Emptying a soldier is how you win a fight now; leaving them loaded is how you win the next one.</p>
-<h3>Energy</h3>
+<p>Two squads, one objective, one grid. Every operative gets a small pool of <b>action points</b> each
+turn and pays for everything out of it. The twist: whatever they <i>don't</i> spend is what they shoot
+with on the enemy's turn. Emptying a soldier is how you win the fight in front of you; leaving them
+loaded is how you win the next one.</p>
+<h3>Action points</h3>
 <ul>
-  <li>Moving costs <code>2</code> energy per tile, <code>3</code> through rubble.</li>
-  <li>Shooting costs whatever the weapon costs — <code>4</code> for a pistol up to <code>8</code> for a sniper rifle.</li>
-  <li>Abilities cost <code>4–6</code>.</li>
-  <li>Anything left over is a <b>return fire</b> pool. If an enemy moves into your line of sight on their turn,
-      each operative who can still pay for a shot takes one — once per turn, at &minus;15 accuracy
-      and 60% damage. Snap shots punish careless movement; they do not win fights on their own.</li>
+  <li>Most operatives get <code>8-12</code> AP. Moving costs <code>1</code> per tile, <code>+1</code>
+      through rubble, and <code>+1</code> or <code>+2</code> climbing between levels.</li>
+  <li>Shooting costs what the weapon costs &mdash; <code>2</code> for a pistol up to <code>6</code> for
+      an M95 or a rocket launcher. Abilities cost <code>2-3</code>.</li>
+  <li>Anything left over is a <b>return fire</b> pool. If an enemy moves into your line of sight, each
+      operative who can still pay for a shot takes one &mdash; once per turn, at &minus;15 accuracy and
+      60% damage. Snap shots punish careless movement; they do not win fights on their own.</li>
 </ul>
-<h3>Cover</h3>
+<h3>Cover is on the edges</h3>
+<p>Cover belongs to the <b>edge</b> a shot crosses, not to a tile, so what matters is the side of the
+target facing you. Four states, each a different penalty to the shooter:</p>
 <ul>
-  <li><span style="color:#7fc45a"><b>Green — full cover</b></span>: a wall between you and the shooter. &minus;40 to their accuracy.</li>
-  <li><span style="color:#f2c14e"><b>Yellow — half cover</b></span>: sandbags or a low wreck. &minus;20 to their accuracy.</li>
-  <li><span style="color:#e8563f"><b>Red — flanked</b></span>: nothing in the way. Full accuracy <b>and 50% extra damage</b>.</li>
+  <li><b>Open</b> &mdash; nothing in the way. Full accuracy <b>and 50% extra damage</b>.</li>
+  <li><span style="color:#f2c14e"><b>Low cover</b></span> &mdash; sandbags, a kerb. &minus;20 accuracy.</li>
+  <li><span style="color:#7fc45a"><b>Hard cover</b></span> &mdash; a car, a skip. &minus;35 accuracy.</li>
+  <li><span style="color:#7fc45a"><b>Solid</b></span> &mdash; a wall, which also blocks line of sight. &minus;55 accuracy.</li>
 </ul>
-<p>Cover is directional. The bracket colour drawn around an enemy tells you what <i>your</i> shot is facing, so
-walking two tiles sideways is often worth more than a second shot.</p>
+<p>Because cover is directional, walking two tiles sideways is often worth more than a second shot.
+Lobbed weapons &mdash; grenades, rockets &mdash; ignore one level of it.</p>
+<h3>High ground</h3>
+<p>Maps are built in levels. Shooting downhill gives <code>+6</code> accuracy and strips a level off the
+target's cover; shooting uphill costs you <code>6</code>. Climbing costs extra AP, so height is
+something you take early and hold.</p>
 <h3>Winning</h3>
 <ul>
-  <li>Hold the striped objective zone <b>uncontested</b> at the end of a round to score. First to <b>5</b> wins.</li>
+  <li>Hold the striped objective <b>uncontested</b> at the end of a round to score. First to the map's
+      target &mdash; <b>5</b> on most, <b>6</b> on some &mdash; wins.</li>
   <li>If both squads have someone in the zone it is contested and nobody scores.</li>
-  <li>Wiping out the enemy squad also wins it. So does leading on objective score when the round limit runs out.</li>
+  <li>Wiping out the enemy also wins it, as does leading on objective score at the round limit.</li>
 </ul>
 <h3>Building a squad</h3>
-<p>Squads are bought with points, and an operative costs exactly what their weapon costs — a 14-point squad is
-three cheaply-armed bodies or two well-armed ones. Five classes: <b>Commando</b> (suppress),
-<b>Medic</b> (heal), <b>Engineer</b> (build cover), <b>Captain</b> (hand an ally extra energy),
-<b>Agent</b> (smoke). Every operative also has a trait that bends one rule in their favour.</p>
+<p>Squads are bought with points, and an operative costs exactly what their weapon costs &mdash; a
+14-point squad is three cheaply-armed bodies or two well-armed ones. Six classes: <b>Commando</b>
+(suppress), <b>Medic</b> (heal), <b>Engineer</b> (build cover), <b>Captain</b> (hand an ally extra AP),
+<b>Agent</b> (smoke), <b>Heavy</b> (brace). Every operative also has a trait that bends one rule.</p>
 <h3>Controls</h3>
 <ul>
-  <li>Tap an operative to select. Blue tiles are where they can reach; the darker blue ones cost so much
-      to reach that they could not shoot afterwards.</li>
-  <li>Tap a bracketed enemy to shoot. Hover first to see the odds, the cover, and the damage band.</li>
-  <li>The ability button targets separately — press it, then pick a target, or press it again to cancel.</li>
+  <li>Tap an operative to select. Blue tiles are reachable; darker blue ones cost so much to reach that
+      there would be no AP left to shoot.</li>
+  <li>Tap a bracketed enemy to shoot. Hover first for the odds, the cover state and the damage band.</li>
+  <li>The ability button targets separately &mdash; press it, pick a target, or press again to cancel.</li>
+  <li><code>Tab</code> cycles operatives, <code>Enter</code> ends the turn, <code>Esc</code> cancels.</li>
 </ul>`;
 
 /* ============================== BOOT ============================= */
